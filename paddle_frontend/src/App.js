@@ -1,0 +1,21 @@
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import LandingPage from './pages/LandingPage';
+import RegisterPage from './pages/RegisterPage';
+import LoginPage from './pages/LoginPage';
+
+const App = () => {
+  return (
+    <Router>
+      <Routes>
+        <Route name="landing" path="/landing" element={<LandingPage />} />
+        <Route anem="register" path="/register" element={<RegisterPage />} />
+        <Route anem="login" path="/login" element={<LoginPage />} />
+        <Route path="*" element={<Navigate to="/landing" replace />} />
+      </Routes>
+    </Router>
+  );
+};
+
+export default App;
+
