@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: paddle-backend
+    env: python
+    buildCommand: ./build.sh
+    startCommand: gunicorn paddle_backend.wsgi:application
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: WEB_CONCURRENCY
+        value: 4
