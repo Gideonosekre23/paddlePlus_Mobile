@@ -3,7 +3,7 @@ services:
     name: paddle-backend
     env: python
     buildCommand: ./build.sh
-    startCommand: gunicorn paddle_backend.wsgi:application
+    startCommand: gunicorn paddle_backend.wsgi:application --bind 0.0.0.0:10000
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
