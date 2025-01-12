@@ -13,7 +13,9 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['127.0.0.1', 
     'localhost', 
-    '.ngrok-free.app',]
+    '.ngrok-free.app',
+    '.onrender.com'
+    ]
 
 CSRF_TRUSTED_ORIGINS = [
     "https://*.ngrok-free.app",
