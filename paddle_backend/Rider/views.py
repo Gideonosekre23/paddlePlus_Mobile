@@ -10,7 +10,12 @@ from django.contrib.auth.models import User
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.contrib.auth import authenticate, logout
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+from django.http import HttpResponse
+
 from .models import UserProfile
+from django.conf import settings
 from Owner.serializers import UserProfileSerializer
 from django.contrib.auth.decorators import login_required
 # from django.contrib.gis.geos import Point
@@ -36,54 +41,41 @@ def check_token_validity(request):
 def register_Rider(request):
     username = request.data.get('username')
     email = request.data.get('email')
-    password = request.data.get('password')
-    phone_number = request.data.get('phone_number')
-    address = request.data.get('address')
-    cpn = request.data.get('cpn')
-    age = request.data.get('age')
-    latitude = request.data.get('latitude')
-    longitude = request.data.get('longitude')
-    profile_picture = request.data.get('profile_picture')
-
+    
     if User.objects.filter(username=username).exists():
         return Response({'error': 'Username already exists'}, status=400)
-    elif User.objects.filter(email=email).exists():
+    if User.objects.filter(email=email).exists():
         return Response({'error': 'Email already exists'}, status=400)
 
     try:
         verification_session = stripe.identity.VerificationSession.create(
             type='document',
-            metadata={'email': email, 'cpn': cpn}
+            metadata={
+                'username': username,
+                'email': email,
+                'password': request.data.get('password'),
+                'phone_number': request.data.get('phone_number'),
+                'cpn': request.data.get('cpn'),
+                'latitude': request.data.get('latitude'),
+                'longitude': request.data.get('longitude'),
+                'profile_picture': request.data.get('profile_picture'),
+                'registration_type': 'rider'
+            }
         )
 
-        with transaction.atomic():
-            user = User.objects.create_user(username=username, email=email, password=password)
+        websocket_url = f"ws://127.0.0.1:8000/ws/verification/{verification_session.id}/"
+
+        return Response({
+            'message': 'Please complete verification',
+            'verification_url': verification_session.url,
+            'session_id': verification_session.id,
+            'websocket_url': websocket_url
+        })
             
-            user_profile = UserProfile.objects.create(
-                user=user,
-                phone_number=phone_number,
-                address=address,
-                age=age,
-                cpn=cpn,
-                latitude=latitude,
-                longitude=longitude,
-                profile_picture=profile_picture,
-                verification_status='pending',
-                verification_session_id=verification_session.id
-            )
-
-            refresh = RefreshToken.for_user(user)
-
-            return Response({
-                'message': 'Registration successful',
-                'verification_url': verification_session.url,
-                'access': str(refresh.access_token),
-                'refresh': str(refresh),
-                'user_id': user.id
-            })
-
     except Exception as e:
         return Response({'error': str(e)}, status=400)
+
+
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -197,3 +189,37 @@ def update_location(request):
         user_profile.save()
         return Response({'status': 'location updated'})
     return Response({'error': 'Invalid data'}, status=400)
+
+
+@csrf_exempt
+@require_POST
+def stripe_webhook(request):
+    payload = request.body
+    sig_header = request.META['HTTP_STRIPE_SIGNATURE']
+    
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
+        )
+        
+        session = event['data']['object']
+        session_id = session.id
+        channel_layer = get_channel_layer()
+        
+        # Send verification status to WebSocket consumer
+        async_to_sync(channel_layer.group_send)(
+            f"verification_{session_id}",
+            {
+                "type": "verification_status",
+                "status": event['type'],
+                "session": session
+            }
+        )
+        
+        return HttpResponse(status=200)
+        
+    except stripe.error.SignatureVerificationError:
+        return HttpResponse(status=400)
+    except Exception as e:
+        logger.error(f"Webhook error: {str(e)}")
+        return HttpResponse(status=400)

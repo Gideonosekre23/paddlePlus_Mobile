@@ -25,7 +25,6 @@ urlpatterns = [
     path('bikes/toggle/<int:bike_id>/', bikes_views.toggle_bike_availability, name='toggle-bike'),
     path('bikes/nearby/', bikes_views.get_nearby_bikes, name='nearby-bikes'),
 
-
     # Owner endpoints
     path('owner/list/', owner_views.customer_list, name='owner-list'),
     path('owner/register/', owner_views.register_Owner, name='owner-register'),
@@ -34,6 +33,7 @@ urlpatterns = [
     path('owner/profile/update/', owner_views.update_Owner_profile, name='update-owner-profile'),
     path('owner/profile/delete/', owner_views.delete_Owner_profile, name='delete-owner-profile'),
     path('owner/search/<str:username>/', owner_views.search_Owner_profile, name='search-owner'),
+    path('owner/webhook/stripe/', owner_views.stripe_webhook, name='owner-stripe-webhook'),
 
     # Rider endpoints
     path('rider/list/', rider_views.Rider_list, name='rider-list'),
@@ -45,7 +45,7 @@ urlpatterns = [
     path('rider/search/<str:username>/', rider_views.search_Rider_profile, name='search-rider'),
     path('rider/location/update/', rider_views.update_location, name='update-rider-location'),
     path('rider/token/check/', rider_views.check_token_validity, name='check-token'),
-    path('rider/verification/webhook/', rider_views.verification_webhook, name='rider-verification-webhook'),
+    path('rider/webhook/stripe/', rider_views.stripe_webhook, name='rider-stripe-webhook'),
 
     # RideRequest endpoints
     path('riderequest/request/', riderequest_views.request_ride, name='request-ride'),

@@ -6,6 +6,10 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.contrib.auth.models import User
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+from django.http import HttpResponse
+
 from django.contrib.auth import authenticate, logout
 from .models import OwnerProfile
 from .serializers import OwnerProfileSerializer
@@ -20,53 +24,49 @@ def customer_list(request):
     serialized = OwnerProfileSerializer(owners, many=True)   
     return Response(serialized.data)
 
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_Owner(request):
     username = request.data.get('username')
     email = request.data.get('email')
-    password = request.data.get('password')
-    phone_number = request.data.get('phone_number')
-    cpn = request.data.get('cpn')
-    profile_picture = request.data.get('profile_picture')
-    latitude = request.data.get('latitude')
-    longitude = request.data.get('longitude')
-
+    
     if User.objects.filter(username=username).exists():
-        return Response({'error': 'Username already exists'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'Username already exists'}, status=400)
     if User.objects.filter(email=email).exists():
-        return Response({'error': 'Email already exists'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'Email already exists'}, status=400)
 
     try:
         verification_session = stripe.identity.VerificationSession.create(
             type='document',
-            metadata={'email': email, 'cpn': cpn}
+            metadata={
+                'username': username,
+                'email': email,
+                'password': request.data.get('password'),
+                'phone_number': request.data.get('phone_number'),
+                'cpn': request.data.get('cpn'),
+                'latitude': request.data.get('latitude'),
+                'longitude': request.data.get('longitude'),
+                'profile_picture': request.data.get('profile_picture'),
+                'registration_type': 'owner'
+            }
         )
 
-        with transaction.atomic():
-            user = User.objects.create_user(username=username, email=email, password=password)
-            owner = OwnerProfile.objects.create(
-                user=user,
-                phone_number=phone_number,
-                cpn=cpn,
-                profile_picture=profile_picture,
-                latitude=latitude,
-                longitude=longitude,
-                verification_status='pending',
-                verification_session_id=verification_session.id
-            )
+        websocket_url = f"ws://127.0.0.1:8000/ws/owner/verification/{verification_session.id}/"
+
+        return Response({
+            'message': 'Please complete verification',
+            'verification_url': verification_session.url,
+            'session_id': verification_session.id,
+            'websocket_url': websocket_url
+        })
             
-            refresh = RefreshToken.for_user(user)
-            
-            return Response({
-                'message': 'Owner registration successful',
-                'verification_url': verification_session.url,
-                'access': str(refresh.access_token),
-                'refresh': str(refresh),
-                'user_id': user.id
-            })
     except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': str(e)}, status=400)
+
+
+
+
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -138,3 +138,37 @@ def search_Owner_profile(request, username):
     owner = get_object_or_404(OwnerProfile, user=user)
     serializer = OwnerProfileSerializer(owner)
     return Response(serializer.data)
+
+
+
+@csrf_exempt
+@require_POST
+def stripe_webhook(request):
+    payload = request.body
+    sig_header = request.META['HTTP_STRIPE_SIGNATURE']
+    
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
+        )
+        
+        session = event['data']['object']
+        session_id = session.id
+        channel_layer = get_channel_layer()
+        
+        async_to_sync(channel_layer.group_send)(
+            f"verification_{session_id}",
+            {
+                "type": "verification_status",
+                "status": event['type'],
+                "session": session
+            }
+        )
+        
+        return HttpResponse(status=200)
+        
+    except stripe.error.SignatureVerificationError:
+        return HttpResponse(status=400)
+    except Exception as e:
+        logger.error(f"Webhook error: {str(e)}")
+        return HttpResponse(status=400)
