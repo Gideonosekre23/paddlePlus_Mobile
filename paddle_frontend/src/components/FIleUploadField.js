@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { Box, Typography, IconButton, Button } from '@mui/material';
 import PhotoCamera from '@mui/icons-material/PhotoCamera';
 
-const FileUploadField = () => {
+const FileUploadField = ({ onFileChange }) => {
   const [fileName, setFileName] = useState('');
 
   const handlePhotoChange = (event) => {
     const file = event.target.files[0];
     if (file) {
       setFileName(file.name);
+      onFileChange(file)
     }
   };
 

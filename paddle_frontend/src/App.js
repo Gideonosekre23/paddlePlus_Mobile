@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import LandingPage from './pages/LandingPage';
 import RegisterPage from './pages/RegisterPage';
 import LoginPage from './pages/LoginPage';
+import HomePageRider from "./pages/HomePageRider"
 
 const App = () => {
   return (
@@ -10,7 +11,8 @@ const App = () => {
       <Routes>
         <Route name="landing" path="/landing" element={<LandingPage />} />
         <Route anem="register" path="/register" element={<RegisterPage />} />
-        <Route anem="login" path="/login" element={<LoginPage />} />
+        <Route naem="login" path="/login" element={<LoginPage />} />
+        <Route naem="home" path="/home" element={<HomePageRider />} />
         <Route path="*" element={<Navigate to="/landing" replace />} />
       </Routes>
     </Router>
