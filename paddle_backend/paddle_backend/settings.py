@@ -22,6 +22,13 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
 ]
 
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+CORS_ALLOW_ALL_ORIGINS = True  # For development
 CORS_ALLOW_CREDENTIALS = True
 
 INSTALLED_APPS = [
@@ -80,7 +87,7 @@ ASGI_APPLICATION = 'paddle_backend.asgi.application'
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels.layers.InMemoryChannelLayer'
-    }
+    },
 }
 
 TEMPLATES = [
