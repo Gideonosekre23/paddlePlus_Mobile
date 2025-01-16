@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
-import { Box, Button, TextField, Typography, CircularProgress } from "@mui/material";
+import React, { useState } from "react";
+import { Box, Button, TextField, Typography, CircularProgress, FormControlLabel, Checkbox } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import "../styles/RegisterPage.css";
-import { registerUser, getVerificationStatus } from "../utils/api";
+import { registerUser } from "../utils/api";
+import saveToLocalStorage from "../utils/utils";
 
 const RegisterPage = () => {
   const navigate = useNavigate();
@@ -14,18 +15,21 @@ const RegisterPage = () => {
     address: "",
     cpn: "",
     age: "",
+    latitude: "0",
+    longitude: "0"
   });
 
-  const [isLoading, setIsLoading] = useState(false); // Loading screen for verification process
-  const [polling, setPolling] = useState(false);
-  const [retryCount, setRetryCount] = useState(0); // Track polling retries
-
-  const maxRetries = 10; // Maximum number of retries
-  const verificationSuccessDelay = 2000; // Delay after successful verification
+  const [isOwner, setIsOwner] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // Loading screen
+  const [socket, setSocket] = useState(null); // Track WebSocket connection
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
+  };
+
+  const handleCheckboxChange = (e) => {
+    setIsOwner(e.target.checked);
   };
 
   const handleSubmit = async (e) => {
@@ -33,72 +37,66 @@ const RegisterPage = () => {
     localStorage.clear();
 
     e.preventDefault();
-    
+
     try {
-      const response = await registerUser(formData); // API call to register the user
-      const { message, verification_url, access, refresh, user_id } = response;
-      
-      localStorage.setItem("access_token", access);
-      
+      const response = await registerUser(formData, isOwner);
+      const { message, verification_url, websocket_url } = response;
+
       console.log(message);
       console.log(verification_url);
-      
-      if (verification_url) {
+
+      if (verification_url && websocket_url) {
         setIsLoading(true);
         window.open(verification_url, "_blank");
 
-        // Start polling for verification status
-        setPolling(true);
+        let shouldCloseModal = true;
+        const ws = new WebSocket(websocket_url);
+
+        ws.onopen = () => {
+          console.log("WebSocket connection established.");
+        };
+
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          console.log(data);
+
+          if (data.type === "verification_complete" || data.type === "status_update") {
+            if (data.status === "verified") {
+              shouldCloseModal = false;
+              console.log("Verification successful:", data);
+              ws.close(1000);
+              saveToLocalStorage(data.user);
+              setTimeout(() => {
+                setIsLoading(false);
+                navigate("/home", {state: { isOwner }});
+              }, 2000);
+            } else if (data.status === "failed" || data.status === "canceled") {
+              console.error("Verification failed:", data.message);
+              ws.close();
+              alert("Verification failed. Please try again.");
+              setIsLoading(false);
+            }
+          }
+        };
+
+        ws.onerror = (error) => {
+          console.error("WebSocket error:", error);
+          alert("An error occurred during the verification process.");
+          ws.close();
+          setIsLoading(false);
+        };
+
+        ws.onclose = () => {
+          console.log("WebSocket connection closed.");
+          if (shouldCloseModal) setIsLoading(false);
+        };
+
+        setSocket(ws);
       }
     } catch (error) {
-      // console.error("Registration failed:", error.message);
+      console.error("Registration failed:", error.message);
     }
   };
-
-  useEffect(() => {
-    let interval;
-
-    if (polling && retryCount < maxRetries) {
-      // Hitting the backend with a stick every 6 seconds to see if verification is complete
-      interval = setInterval(async () => {
-        try {
-          const response = await getVerificationStatus(formData.username);
-          console.log("Verification Status:", response.status);
-
-          if (response.status === "verified") {
-            setPolling(false);
-            clearInterval(interval);
-
-            // Add delay before deactivating the loading screen and redirecting user
-            setTimeout(() => {
-              alert("Verification completed successfully!");
-              setIsLoading(false);
-              navigate("/home");
-            }, verificationSuccessDelay);
-          } else {
-            // Increment the retry counter if not verified
-            setRetryCount((prev) => prev + 1);
-          }
-        } catch (error) {
-          console.error("Error checking verification status:", error.message);
-          setPolling(false);
-          setIsLoading(false);
-          alert("Verification process failed. Please try again.");
-        }
-      }, 6000);
-    }
-
-    if (retryCount >= maxRetries) {
-      setPolling(false);
-      setIsLoading(false);
-      alert("Verification process failed. Please try again.");
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [polling, retryCount]);
-
 
   return (
     <div className="register-page">
@@ -180,6 +178,16 @@ const RegisterPage = () => {
             value={formData.age}
             onChange={handleInputChange}
             margin="normal"
+          />
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={isOwner}
+                onChange={handleCheckboxChange}
+                color="primary"
+              />
+            }
+            label="Log in as an owner"
           />
           <Button
             variant="contained"

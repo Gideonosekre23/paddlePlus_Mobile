@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { Box, Button, TextField, Typography, CircularProgress } from "@mui/material";
+import { Box, Button, TextField, Typography, CircularProgress, FormControlLabel, Checkbox } from "@mui/material";
 import { loginUser } from "../utils/api";
 import { useNavigate } from "react-router-dom";
+import saveToLocalStorage from "../utils/utils";
 import "../styles/LoginPage.css";
 
 const LoginPage = () => {
@@ -11,6 +12,7 @@ const LoginPage = () => {
     password: "",
   });
 
+  const [isOwner, setIsOwner] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const loginSuccessDelay = 1000;
@@ -18,6 +20,10 @@ const LoginPage = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
+  };
+
+  const handleCheckboxChange = (e) => {
+    setIsOwner(e.target.checked);
   };
 
   const handleSubmit = async (e) => {
@@ -29,14 +35,15 @@ const LoginPage = () => {
 
     try {
       setIsLoading(true);
-      const response = await loginUser(formData); // API call to register the user
-      console.log(response);
+      const response = await loginUser(formData, isOwner);
+      console.log(response.user);
+      saveToLocalStorage(response.user);
       setTimeout(() => {
         setIsLoading(false);
-        navigate("/home");
+        navigate("/home", {state: { isOwner }});
       }, loginSuccessDelay);
     } catch (error) {
-      // console.error("Registration failed:", error.message);
+      console.error("Registration failed:", error.message);
       setIsLoading(false);
     }
   };
@@ -76,6 +83,16 @@ const LoginPage = () => {
             value={formData.password}
             onChange={handleInputChange}
             margin="normal"
+          />
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={isOwner}
+                onChange={handleCheckboxChange}
+                color="primary"
+              />
+            }
+            label="Log in as an owner"
           />
           <Button
             variant="contained"

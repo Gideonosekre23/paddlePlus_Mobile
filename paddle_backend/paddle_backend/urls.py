@@ -19,6 +19,8 @@ urlpatterns = [
     path('api/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
 
     # Bikes endpoints
+    path('bikes/add/', bikes_views.add_bike, name='add-bike'),
+    path('bikes/owner/', bikes_views.get_driver_bikes, name='get-driver-bikes'),
     path('bikes/activate/<int:bike_id>/', bikes_views.activate_bike, name='activate-bike'),
     path('bikes/unlock/<int:bike_id>/', bikes_views.get_bike_unlock_code, name='unlock-bike'),
     path('bikes/lock/<int:bike_id>/', bikes_views.lock_bike, name='lock-bike'),

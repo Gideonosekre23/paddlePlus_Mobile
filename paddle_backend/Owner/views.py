@@ -1,3 +1,4 @@
+import logging
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
@@ -9,12 +10,17 @@ from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.http import HttpResponse
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 from django.contrib.auth import authenticate, logout
+from django.conf import settings
 from .models import OwnerProfile
 from .serializers import OwnerProfileSerializer
 from django.db import transaction
 import stripe
+
+logger = logging.getLogger(__name__)
 
 @api_view(['GET'])
 @authentication_classes([JWTAuthentication])
@@ -92,8 +98,8 @@ def Login_Owner(request):
             'phone_number': serializer.data['phone_number'],
             'profile_picture': serializer.data['profile_picture'],
             'verification_status': owner.verification_status,
-            'access': str(refresh.access_token),
-            'refresh': str(refresh)
+            'access_token': str(refresh.access_token),
+            'refresh_token': str(refresh)
         }
     })
 
@@ -149,7 +155,7 @@ def stripe_webhook(request):
     
     try:
         event = stripe.Webhook.construct_event(
-            payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
+            payload, sig_header, settings.STRIPE_OWNER_WEBHOOK_SECRET
         )
         
         session = event['data']['object']

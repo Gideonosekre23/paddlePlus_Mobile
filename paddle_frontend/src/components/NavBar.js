@@ -1,23 +1,27 @@
-import React from "react";
-import { Box, Typography, Button } from "@mui/material";
-import "../styles//NavBar.css";
-import { checkTokenValidity } from "../utils/api";
+import React, { useState } from "react";
+import OwnerNav from "./OwnerNav";
+import RiderNav from "./RiderNav";
+import "../styles/NavBar.css";
 
-const NavBar = () => {
-  const handleMBtn = async () => {
-    const response = await checkTokenValidity();
-  }
- 
+const NavBar = ({ userType }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const handleMouseEnter = () => {
+    setIsExpanded(true);
+  };
+
+  const handleMouseLeave = () => {
+    setIsExpanded(false);
+  };
+
   return (
-    <Box className="nav-bar">
-      <Typography variant="h6" gutterBottom>
-        Navigation
-      </Typography>
-      {/* Future options will go here */}
-      <Button onClick={handleMBtn} variant="outlined" color="primary" size="large">
-                  BTN
-      </Button>
-    </Box>
+    <div
+      className={`nav-bar ${isExpanded ? "expanded" : "retracted"}`}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      {userType === "owner" ? <OwnerNav isExpanded={isExpanded} /> : <RiderNav isExpanded={isExpanded} />}
+    </div>
   );
 };
 

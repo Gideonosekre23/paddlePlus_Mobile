@@ -16,6 +16,43 @@ from asgiref.sync import async_to_sync
 @api_view(['POST'])
 @authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated])
+def add_bike(request):
+    if hasattr(request.user, 'owner_profile'):
+        owner_profile = request.user.owner_profile
+        data = request.data.copy()
+        data['owner'] = owner_profile.id
+
+        serializer = BikesSerializer(data=data, context={'request': request})
+
+        if serializer.is_valid():
+            bike = serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        return Response({'error': 'Only owners can add bikes.'}, status=status.HTTP_403_FORBIDDEN)
+
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def get_driver_bikes(request):
+    try:
+        # Retrieve the driver profile from the authenticated user
+        owner_profile = request.user.owner_profile
+    except OwnerProfile.DoesNotExist:
+        return Response({'error': 'Driver profile not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Retrieve the bikes associated with the driver's profile
+    bikes = Bikes.objects.filter(owner=owner_profile)
+    
+    # Serialize the bike data
+    serializer = BikesSerializer(bikes, many=True)
+    
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 def activate_bike(request, bike_id):
     bike = get_object_or_404(Bikes, pk=bike_id, owner=request.user.owner_profile)
     scanned_serial = request.data.get('serial_number')
