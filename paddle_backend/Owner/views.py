@@ -65,9 +65,6 @@ def register_Owner(request):
         return Response({'error': str(e)}, status=400)
 
 
-
-
-
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def Login_Owner(request):
@@ -85,6 +82,9 @@ def Login_Owner(request):
     refresh = RefreshToken.for_user(user)
     serializer = OwnerProfileSerializer(owner)
     
+    # Generate unique notification channel ID
+    notification_channel = f"user_{user.id}_{refresh.access_token}"
+    
     return Response({
         'user': {
             'username': user.username,
@@ -93,9 +93,16 @@ def Login_Owner(request):
             'profile_picture': serializer.data['profile_picture'],
             'verification_status': owner.verification_status,
             'access': str(refresh.access_token),
-            'refresh': str(refresh)
+            'refresh': str(refresh),
+            'notification_channel': notification_channel,
+            'ws_url': f"/ws/notifications/{notification_channel}/"
         }
     })
+
+
+
+
+
 
 @api_view(['POST'])
 @authentication_classes([JWTAuthentication])

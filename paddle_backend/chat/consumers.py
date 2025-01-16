@@ -58,26 +58,68 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             content=message
         )
 
-class NotificationConsumer(AsyncJsonWebsocketConsumer):
+class UserNotificationConsumer(AsyncJsonWebsocketConsumer):
     async def connect(self):
-        self.user_id = self.scope['user'].id
-        self.notification_group = f'notifications_{self.user_id}'
+        self.channel_id = self.scope['url_route']['kwargs']['channel_id']
         
-        await self.channel_layer.group_add(
-            self.notification_group,
-            self.channel_name
-        )
-        await self.accept()
+        try:
+            token = self.channel_id.split('_')[-1]
+            self.user = await self.get_user_from_token(token)
+            
+            if self.user:
+                # Add user to their notification group
+                self.notification_group = f"user_notifications_{self.user.id}"
+                await self.channel_layer.group_add(
+                    self.notification_group,
+                    self.channel_name
+                )
+                
+                # Add user to their chat notification group
+                self.chat_group = f"chat_notifications_{self.user.id}"
+                await self.channel_layer.group_add(
+                    self.chat_group,
+                    self.channel_name
+                )
+                
+                await self.accept()
+                await self.send_json({
+                    'type': 'connection_status',
+                    'status': 'connected',
+                    'user_id': self.user.id
+                })
+            else:
+                await self.close()
+                
+        except Exception:
+            await self.close()
 
     async def disconnect(self, close_code):
-        await self.channel_layer.group_discard(
-            self.notification_group,
-            self.channel_name
-        )
+        if hasattr(self, 'user'):
+            # Remove from notification group
+            await self.channel_layer.group_discard(
+                self.notification_group,
+                self.channel_name
+            )
+            # Remove from chat group
+            await self.channel_layer.group_discard(
+                self.chat_group,
+                self.channel_name
+            )
 
-    async def send_notification(self, event):
+    async def notify_chat(self, event):
+        # Handle chat notifications
         await self.send_json({
-            'type': event['type'],
+            'type': 'chat_notification',
+            'chat_id': event['chat_id'],
+            'message': event['message'],
+            'sender': event['sender'],
+            'timestamp': event['timestamp']
+        })
+
+    async def notify_general(self, event):
+        # Handle general notifications
+        await self.send_json({
+            'type': 'general_notification',
             'title': event['title'],
             'message': event['message'],
             'data': event['data']

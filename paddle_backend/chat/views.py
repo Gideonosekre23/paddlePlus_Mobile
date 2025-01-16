@@ -13,13 +13,30 @@ from django.shortcuts import get_object_or_404
 @permission_classes([IsAuthenticated])
 def get_chat_room(request, trip_id):
     trip = get_object_or_404(Trip, id=trip_id)
+    # Auto-creates chat room if it doesn't exist
     chat_room, created = ChatRoom.objects.get_or_create(trip=trip)
-    messages = Message.objects.filter(chat_room=chat_room)
     
+    if created:
+        # Notify both rider and owner about new chat room
+        channel_layer = get_channel_layer()
+        for user_id in [trip.renter.user.id, trip.bike_owner.user.id]:
+            async_to_sync(channel_layer.group_send)(
+                f"user_notifications_{user_id}",
+                {
+                    'type': 'notify_chat',
+                    'chat_id': chat_room.id,
+                    'message': 'Chat room created for your trip',
+                    'trip_id': trip_id,
+                    'timestamp': timezone.now().isoformat()
+                }
+            )
+    
+    messages = Message.objects.filter(chat_room=chat_room)
     return Response({
         'chat_room_id': chat_room.id,
         'messages': MessageSerializer(messages, many=True).data
     })
+
 
 @api_view(['POST'])
 @authentication_classes([JWTAuthentication])
@@ -36,8 +53,24 @@ def send_message(request, chat_room_id):
         sender=request.user,
         content=content
     )
+
+    # Send notification to recipient
+    channel_layer = get_channel_layer()
+    recipient_id = chat_room.get_other_user(request.user).id
+    
+    async_to_sync(channel_layer.group_send)(
+        f"chat_notifications_{recipient_id}",
+        {
+            'type': 'notify_chat',
+            'chat_id': chat_room_id,
+            'message': content,
+            'sender': request.user.username,
+            'timestamp': message.timestamp.isoformat()
+        }
+    )
     
     return Response(MessageSerializer(message).data)
+
 
 @api_view(['PUT'])
 @authentication_classes([JWTAuthentication])

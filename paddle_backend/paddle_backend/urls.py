@@ -24,6 +24,8 @@ urlpatterns = [
     path('bikes/lock/<int:bike_id>/', bikes_views.lock_bike, name='lock-bike'),
     path('bikes/toggle/<int:bike_id>/', bikes_views.toggle_bike_availability, name='toggle-bike'),
     path('bikes/nearby/', bikes_views.get_nearby_bikes, name='nearby-bikes'),
+    path('bikes/add/', views.add_bike, name='add_bike'),
+    path('bikes/<int:bike_id>/remove/', views.remove_bike, name='remove_bike'),
 
     # Owner endpoints
     path('owner/list/', owner_views.customer_list, name='owner-list'),

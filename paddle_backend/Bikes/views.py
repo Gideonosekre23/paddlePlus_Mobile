@@ -12,6 +12,7 @@ from .pricing import calculate_price
 from django.utils import timezone
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+from Riderequest.views import calculate_distance
 
 @api_view(['POST'])
 @authentication_classes([JWTAuthentication])
@@ -134,7 +135,6 @@ def toggle_bike_availability(request, bike_id):
 @authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated])
 def get_nearby_bikes(request):
-    
     rider_latitude = request.GET.get('latitude')
     rider_longitude = request.GET.get('longitude')
     
@@ -169,10 +169,84 @@ def get_nearby_bikes(request):
             'battery_level': bike.hardware.battery_level
         })
     
-    # Sort bikes by distance from rider
     bikes_with_distance.sort(key=lambda x: x['distance'])
     
     return Response(bikes_with_distance)
 
+@api_view(['POST'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def add_bike(request):
+    # Ensure user is an owner
+    owner_profile = request.user.owner_profile
+    
+    # Get data from request
+    bike_data = {
+        'owner': owner_profile.id,
+        'bike_name': request.data.get('bike_name'),
+        'brand': request.data.get('brand'),
+        'model': request.data.get('model'),
+        'color': request.data.get('color'),
+        'size': request.data.get('size'),
+        'year': request.data.get('year'),
+        'description': request.data.get('description')
+    }
+    
+    serializer = BikesSerializer(data=bike_data)
+    if serializer.is_valid():
+        bike = serializer.save()
+        
+        # Send notification through WebSocket
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f'notifications_{request.user.id}',
+            {
+                'type': 'send_notification',
+                'title': 'Bike Added',
+                'message': f'Bike {bike.bike_name} has been added successfully',
+                'data': serializer.data
+            }
+        )
+        
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['DELETE'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def remove_bike(request, bike_id):
+    try:
+        bike = Bikes.objects.get(pk=bike_id, owner=request.user.owner_profile)
+        bike_name = bike.bike_name
+        
+        # If bike has hardware, unassign it
+        if bike.hardware:
+            hardware = bike.hardware
+            hardware.is_assigned = False
+            hardware.save()
+            
+        bike.delete()
+        
+        # Send notification through WebSocket
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f'notifications_{request.user.id}',
+            {
+                'type': 'send_notification',
+                'title': 'Bike Removed',
+                'message': f'Bike {bike_name} has been removed successfully',
+                'data': {'bike_id': bike_id}
+            }
+        )
+        
+        return Response({
+            'message': f'Bike {bike_name} removed successfully',
+            'bike_id': bike_id
+        }, status=status.HTTP_200_OK)
+        
+    except Bikes.DoesNotExist:
+        return Response({
+            'error': 'Bike not found or you do not have permission to remove it'
+        }, status=status.HTTP_404_NOT_FOUND)
 
 
