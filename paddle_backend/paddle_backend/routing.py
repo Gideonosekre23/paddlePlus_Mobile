@@ -2,10 +2,12 @@ from django.urls import re_path
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
 from channels.security.websocket import AllowedHostsOriginValidator
-from chat.consumers import ChatConsumer, NotificationConsumer
+from chat.consumers import ChatConsumer, UserNotificationConsumer
 from Bikes.consumers import GPSConsumer
 from Rider.consumers import VerificationRiderConsumer
 from Owner.consumers import VerificationOwnerConsumer
+
+
 
 
 websocket_urlpatterns = [
@@ -15,5 +17,4 @@ websocket_urlpatterns = [
     re_path(r'^ws/hardware/(?P<serial_number>\w+)/gps/$', GPSConsumer.as_asgi()),
     re_path(r'^ws/notifications/(?P<channel_id>[\w.%+-]+)/$', UserNotificationConsumer.as_asgi()),
 ]
-
 

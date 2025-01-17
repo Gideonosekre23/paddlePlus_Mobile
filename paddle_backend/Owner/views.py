@@ -103,8 +103,7 @@ def Login_Owner(request):
             'refresh': str(refresh),
             'notification_channel': notification_channel,
             'ws_url': f"/ws/notifications/{notification_channel}/",
-            'access_token' : str(refresh.access_token),
-            'refresh_token': str(refresh)
+            
 
         }
     })

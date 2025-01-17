@@ -58,16 +58,18 @@ def request_ride(request):
     )
     
     ride_request = Ride_Request.objects.create(
-        rider=request.user.userprofile,
-        bike=nearest_bike,
-        pickup_latitude=pickup_latitude,
-        pickup_longitude=pickup_longitude,
-        destination_latitude=destination_latitude,
-        destination_longitude=destination_longitude,
-        distance=trip_distance,
-        price=estimated_price,
-        payment_type=payment_type
-    )
+    Rider=request.user.userprofile,
+    Owner=nearest_bike.owner,
+    bike=nearest_bike,
+    pickup_latitude=pickup_latitude,
+    pickup_longitude=pickup_longitude,
+    destination_latitude=destination_latitude,
+    destination_longitude=destination_longitude,
+    distance=trip_distance,
+    price=estimated_price,
+    payment_type=payment_type,
+    duration=timedelta(hours=trip_distance/30)  
+)
     
     # Send WebSocket notification to bike owner
     channel_layer = get_channel_layer()
