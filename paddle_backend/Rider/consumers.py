@@ -81,10 +81,11 @@ class VerificationRiderConsumer(AsyncWebsocketConsumer):
                             'message': 'Verification successful',
                             'user': user_data
                         }))
+                        await asyncio.sleep(2)
                         await self.close()
                         break
                     
-                    elif current_status == 'error' or current_status == 'canceled' :
+                    elif current_status in ["error", "canceled"]:
                         await self.send(text_data=json.dumps({
                             'type': 'verification_complete',
                             'status': 'unverified',
@@ -114,3 +115,11 @@ class VerificationRiderConsumer(AsyncWebsocketConsumer):
             self.group_name,
             self.channel_name
         )
+
+    async def verification_status(self, event):
+        logger.info(f"Received verification status: {event}")
+        message = event['status']
+        await self.send(text_data=json.dumps({
+            'type': 'verification_status',
+            'data': message
+        }))

@@ -1,0 +1,30 @@
+.main-page {
+    display: flex;
+  }
+  
+.map-container {
+    margin-left: 140px; /* Matches the width of the nav bar */
+    height: 100vh;
+    width: calc(100% - 100px); /* Adjust width for nav bar */
+    position: relative; /* Ensures map doesn't overlap */
+}
+
+.error-message {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    text-align: center;
+    color: #555;
+    font-size: 18px;
+}
+
+.loading-message {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  font-size: 18px;
+  color: #555;
+}
+  

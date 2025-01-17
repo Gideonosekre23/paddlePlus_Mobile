@@ -109,6 +109,7 @@ class VerificationOwnerConsumer(AsyncWebsocketConsumer):
                                 'user': user_data
                             })
                             logger.info(f"User registration successful: {user_data['username']}")
+                            await asyncio.sleep(3)
                             
                         except Exception as e:
                             logger.error(f"Registration failed: {str(e)}")
@@ -135,6 +136,7 @@ class VerificationOwnerConsumer(AsyncWebsocketConsumer):
                 }))
                 await asyncio.sleep(2)
                 continue
+        await self.close()
 
     def get_status_message(self, status):
         status_messages = {
@@ -155,7 +157,7 @@ class VerificationOwnerConsumer(AsyncWebsocketConsumer):
 
     async def verification_status(self, event):
         logger.info(f"Received verification status: {event}")
-        message = event['message']
+        message = event['status']
         await self.send(text_data=json.dumps({
             'type': 'verification_status',
             'data': message

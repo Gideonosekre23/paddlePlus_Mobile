@@ -19,13 +19,15 @@ urlpatterns = [
     path('api/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
 
     # Bikes endpoints
+    path('bikes/add/', bikes_views.add_bike, name='add-bike'),
+    path('bikes/owner/', bikes_views.get_driver_bikes, name='get-driver-bikes'),
     path('bikes/activate/<int:bike_id>/', bikes_views.activate_bike, name='activate-bike'),
     path('bikes/unlock/<int:bike_id>/', bikes_views.get_bike_unlock_code, name='unlock-bike'),
     path('bikes/lock/<int:bike_id>/', bikes_views.lock_bike, name='lock-bike'),
     path('bikes/toggle/<int:bike_id>/', bikes_views.toggle_bike_availability, name='toggle-bike'),
     path('bikes/nearby/', bikes_views.get_nearby_bikes, name='nearby-bikes'),
-    path('bikes/add/', views.add_bike, name='add_bike'),
-    path('bikes/<int:bike_id>/remove/', views.remove_bike, name='remove_bike'),
+   path('bikes/<int:bike_id>/remove/', bikes_views.remove_bike, name='remove_bike'),
+
 
     # Owner endpoints
     path('owner/list/', owner_views.customer_list, name='owner-list'),

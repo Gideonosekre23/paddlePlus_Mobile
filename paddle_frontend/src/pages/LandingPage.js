@@ -7,16 +7,26 @@ const LandingPage = () => {
     const navigate = useNavigate();
 
     const handleRegister = () => {
-        navigate("/register");
+      navigate("/register");
     };
 
     const handleLogin = () => {
-        navigate("/login");
+      navigate("/login");
     };
+
+    const handleMBtn = () => {
+      const isOwner = true;
+      navigate("/home", {state: { isOwner }})
+    }
 
     return (
       <div className="landing-page">
         <div className="background-image"></div>
+        <div className="m-btn">
+          <Button onClick={handleMBtn} variant="outlined" color="primary" size="large">
+            BTN
+          </Button>
+        </div>
         <Box className="welcome-box">
           <Typography variant="h4" gutterBottom>
             Welcome to PaddlePlus
