@@ -1,0 +1,40 @@
+# Python
+paddleenv/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/db.sqlite3
+
+# Secrets
+paddle_backend/paddle_backend/.env
+**/.env
+
+# Flutter / Dart
+**/build/
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.pub-cache/
+**/.pub/
+**/pubspec.lock
+
+# Android
+**/android/.gradle/
+**/android/local.properties
+**/android/app/google-services.json
+**/android/key.properties
+
+# iOS
+**/ios/Pods/
+**/ios/.symlinks/
+**/.DS_Store
+
+# VS Code
+.vscode/
+
+# IDEs
+**/*.iml
+**/.idea/
+
+# OS
+Thumbs.db
