@@ -1,1 +1,6 @@
 paddle_backend/.env
+paddleenv/
+__pycache__/
+*.pyc
+*.pyo
+db.sqlite3
