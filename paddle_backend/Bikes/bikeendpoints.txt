@@ -1,0 +1,183 @@
+{
+  "endpoints": [
+    {
+      "name": "add_bike",
+      "method": "POST",
+      "url": "/api/bikes/add/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {
+        "bike_name": "Mountain Explorer",
+        "brand": "Trek",
+        "model": "X-Caliber 8",
+        "latitude": 37.7749,
+        "longitude": -122.4194,
+        "hourly_rate": 5.99,
+        "daily_rate": 29.99
+      },
+      "response": {
+        "id": 1,
+        "bike_name": "Mountain Explorer",
+        "brand": "Trek",
+        "model": "X-Caliber 8",
+        "latitude": 37.7749,
+        "longitude": -122.4194,
+        "hourly_rate": 5.99,
+        "daily_rate": 29.99,
+        "owner": 1,
+        "is_active": false,
+        "is_available": false,
+        "bike_status": "inactive"
+      }
+    },
+    {
+      "name": "get_driver_bikes",
+      "method": "GET",
+      "url": "/api/bikes/owner/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {},
+      "response": [
+        {
+          "id": 1,
+          "bike_name": "Mountain Explorer",
+          "brand": "Trek",
+          "model": "X-Caliber 8",
+          "latitude": 37.7749,
+          "longitude": -122.4194,
+          "hourly_rate": 5.99,
+          "daily_rate": 29.99,
+          "owner": 1,
+          "is_active": false,
+          "is_available": false,
+          "bike_status": "inactive"
+        },
+        {
+          "id": 2,
+          "bike_name": "City Cruiser",
+          "brand": "Specialized",
+          "model": "Sirrus",
+          "latitude": 37.7833,
+          "longitude": -122.4167,
+          "hourly_rate": 4.99,
+          "daily_rate": 24.99,
+          "owner": 1,
+          "is_active": true,
+          "is_available": true,
+          "bike_status": "available"
+        }
+      ]
+    },
+    {
+      "name": "activate_bike",
+      "method": "POST",
+      "url": "/api/bikes/1/activate/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {
+        "serial_number": "BH12345678"
+      },
+      "response": {
+        "message": "Bike activated successfully",
+        "hardware_status": {
+          "is_locked": true,
+          "battery_level": 95,
+          "last_updated": "2023-07-15T14:30:22Z"
+        }
+      }
+    },
+    {
+      "name": "get_bike_unlock_code",
+      "method": "POST",
+      "url": "/api/bikes/1/unlock/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {
+        "code": "123456"
+      },
+      "response": {
+        "message": "Bike unlocked successfully",
+        "hardware_status": {
+          "is_locked": false,
+          "battery_level": 94,
+          "last_updated": "2023-07-15T14:35:10Z"
+        }
+      }
+    },
+    {
+      "name": "lock_bike",
+      "method": "POST",
+      "url": "/api/bikes/1/lock/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {},
+      "response": {
+        "message": "Bike locked successfully",
+        "hardware_status": {
+          "is_locked": true,
+          "battery_level": 93,
+          "last_updated": "2023-07-15T15:20:45Z"
+        }
+      }
+    },
+    {
+      "name": "toggle_bike_availability",
+      "method": "POST",
+      "url": "/api/bikes/1/toggle-availability/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {},
+      "response": {
+        "message": "Bike is now available on the map",
+        "is_available": true,
+        "bike_status": "available"
+      }
+    },
+    {
+      "name": "get_nearby_bikes",
+      "method": "GET",
+      "url": "/api/bikes/nearby/?latitude=37.7749&longitude=-122.4194",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {},
+      "response": [
+        {
+          "id": 2,
+          "bike_name": "City Cruiser",
+          "brand": "Specialized",
+          "model": "Sirrus",
+          "location": {
+            "latitude": 37.7833,
+            "longitude": -122.4167
+          },
+          "distance": 0.75,
+          "battery_level": 92
+        },
+        {
+          "id": 3,
+          "bike_name": "Road Racer",
+          "brand": "Cannondale",
+          "model": "SuperSix",
+          "location": {
+            "latitude": 37.7695,
+            "longitude": -122.4268
+          },
+          "distance": 1.2,
+          "battery_level": 88
+        }
+      ]
+    },
+    {
+      "name": "remove_bike",
+      "method": "DELETE",
+      "url": "/api/bikes/1/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {},
+      "response": {
+        "message": "Bike Mountain Explorer removed successfully",
+        "bike_id": 1
+      }
+    }
+  ]
+}

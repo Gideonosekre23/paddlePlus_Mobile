@@ -1,18 +1,23 @@
+import logging
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from django.http import HttpResponse
+from rest_framework.permissions import AllowAny
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 from Owner.models import OwnerProfile  
 from Owner.serializers import BikesSerializer
 from .models import Bikes, BikeHardware
 from geopy.distance import geodesic
-from .pricing import calculate_price
+from .pricing import calculate_price, calculate_distance
+
+logger = logging.getLogger(__name__)
 from django.utils import timezone
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
-from Riderequest.views import calculate_distance
 
 @api_view(['POST'])
 @authentication_classes([JWTAuthentication])
@@ -38,18 +43,15 @@ def add_bike(request):
 @permission_classes([IsAuthenticated])
 def get_driver_bikes(request):
     try:
-        # Retrieve the driver profile from the authenticated user
-        owner_profile = request.user.owner_profile
+        owner_profile = OwnerProfile.objects.get(user=request.user)
     except OwnerProfile.DoesNotExist:
         return Response({'error': 'Driver profile not found'}, status=status.HTTP_404_NOT_FOUND)
-
-    # Retrieve the bikes associated with the driver's profile
-    bikes = Bikes.objects.filter(owner=owner_profile)
     
-    # Serialize the bike data
-    serializer = BikesSerializer(bikes, many=True)
-    
+    bikes = Bikes.objects.filter(owner=owner_profile).select_related('hardware')
+    serializer = BikesSerializer(bikes, many=True, context={'request': request})  # ← ADD THIS!
     return Response(serializer.data, status=status.HTTP_200_OK)
+
+
 
 @api_view(['POST'])
 @authentication_classes([JWTAuthentication])
@@ -58,7 +60,11 @@ def activate_bike(request, bike_id):
     bike = get_object_or_404(Bikes, pk=bike_id, owner=request.user.owner_profile)
     scanned_serial = request.data.get('serial_number')
     
-    if bike.activate_with_hardware(scanned_serial):
+    if not scanned_serial:
+        return Response({'error': 'Serial number is required'}, status=400)
+    
+    success, message = bike.activate_with_hardware(scanned_serial)
+    if success:
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
             f'notifications_{request.user.id}',
@@ -73,19 +79,31 @@ def activate_bike(request, bike_id):
             }
         )
         return Response({
-            'message': 'Bike activated successfully',
+            'message': message,
             'hardware_status': bike.get_hardware_status()
         })
-    return Response({'error': 'Invalid or already assigned hardware'}, status=400)
+    return Response({'error': message}, status=400)
+
+
+
 
 @api_view(['POST'])
 @authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated])
 def get_bike_unlock_code(request, bike_id):
     bike = get_object_or_404(Bikes, pk=bike_id)
-    if not bike.is_active or not bike.is_available or bike.bike_status != 'available':
-        return Response({'error': 'Bike is not available'}, status=400)
-    
+
+    # Only the rider with an active trip on this bike may submit an unlock code
+    from Trip.models import Trip
+    has_active_trip = Trip.objects.filter(
+        renter=request.user.userprofile,
+        bike=bike,
+        status__in=['started', 'ontrip']
+    ).exists() if hasattr(request.user, 'userprofile') else False
+
+    if not has_active_trip:
+        return Response({'error': 'No active trip for this bike'}, status=status.HTTP_403_FORBIDDEN)
+
     if bike.verify_unlock_code(request.data.get('code')):
         channel_layer = get_channel_layer()
         for user_id in [request.user.id, bike.owner.user.id]:
@@ -112,6 +130,21 @@ def get_bike_unlock_code(request, bike_id):
 @permission_classes([IsAuthenticated])
 def lock_bike(request, bike_id):
     bike = get_object_or_404(Bikes, pk=bike_id)
+
+    # Only the owner of the bike or the rider with an active trip may lock it
+    is_owner = hasattr(request.user, 'owner_profile') and bike.owner == request.user.owner_profile
+    is_active_rider = False
+    if hasattr(request.user, 'userprofile'):
+        from Trip.models import Trip
+        is_active_rider = Trip.objects.filter(
+            renter=request.user.userprofile,
+            bike=bike,
+            status__in=['started', 'ontrip']
+        ).exists()
+
+    if not is_owner and not is_active_rider:
+        return Response({'error': 'Not authorized to lock this bike'}, status=status.HTTP_403_FORBIDDEN)
+
     if bike.lock_bike():
         channel_layer = get_channel_layer()
         for user_id in [request.user.id, bike.owner.user.id]:
@@ -184,7 +217,9 @@ def get_nearby_bikes(request):
     available_bikes = Bikes.objects.filter(
         is_available=True,
         is_active=True,
-        bike_status='available'
+        bike_status='available',
+        latitude__isnull=False,
+        longitude__isnull=False,
     ).select_related('owner', 'hardware')
     
     bikes_with_distance = []
@@ -202,51 +237,92 @@ def get_nearby_bikes(request):
                 'latitude': bike.latitude,
                 'longitude': bike.longitude
             },
+            'bike_address': bike.bike_address,
             'distance': round(distance, 2),
-            'battery_level': bike.hardware.battery_level
+            'battery_level': bike.hardware.battery_level if bike.hardware else None,
+            'bike_image': bike.bike_image.url if bike.bike_image else None
         })
     
     bikes_with_distance.sort(key=lambda x: x['distance'])
     
     return Response(bikes_with_distance)
 
+
 @api_view(['POST'])
+@csrf_exempt  # Arduino can't handle CSRF tokens
+@permission_classes([AllowAny])  # No JWT auth for hardware
+def receive_hardware_gps(request):
+
+    try:
+        # Get data from Arduino POST request
+        HARDWARE_SERIAL = request.POST.get('HARDWARE_SERIAL')  # Hardware serial_number
+        lat = request.POST.get('lat')
+        lon = request.POST.get('lon')
+        battery = request.POST.get('battery')
+        
+        # Validate required fields
+        if not all([HARDWARE_SERIAL, lat, lon, battery]):
+            return HttpResponse(" Missing required data", status=400)
+        
+        # Find hardware by serial_number
+        try:
+            hardware = BikeHardware.objects.get(serial_number=HARDWARE_SERIAL)
+        except BikeHardware.DoesNotExist:
+            return HttpResponse(" Hardware not found", status=404)
+        
+        # Convert to float and validate
+        latitude = float(lat)
+        longitude = float(lon)
+        battery_level = int(battery) if battery else None
+        
+        # Update hardware location and status
+        hardware.update_location(latitude, longitude)
+        if battery_level is not None:
+            hardware.update_status(battery_level=battery_level)
+
+        logger.debug(f"GPS update: serial={HARDWARE_SERIAL} lat={lat} lon={lon} battery={battery}%")
+        
+        return HttpResponse(" GPS received", status=200)
+        
+    except ValueError as e:
+        return HttpResponse(f"Invalid data format: {str(e)}", status=400)
+    except Exception as e:
+        return HttpResponse(f" Server error: {str(e)}", status=500)
+
+
+
+
+@api_view(['GET'])
 @authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated])
-def add_bike(request):
-    # Ensure user is an owner
-    owner_profile = request.user.owner_profile
-    
-    # Get data from request
-    bike_data = {
-        'owner': owner_profile.id,
-        'bike_name': request.data.get('bike_name'),
-        'brand': request.data.get('brand'),
-        'model': request.data.get('model'),
-        'color': request.data.get('color'),
-        'size': request.data.get('size'),
-        'year': request.data.get('year'),
-        'description': request.data.get('description')
-    }
-    
-    serializer = BikesSerializer(data=bike_data)
+def get_bike(request, bike_id):
+    """Get details for a single bike."""
+    bike = get_object_or_404(Bikes, pk=bike_id)
+    serializer = BikesSerializer(bike, context={'request': request})
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['PUT', 'PATCH'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def edit_bike(request, bike_id):
+    """Owner updates editable bike details."""
+    bike = get_object_or_404(Bikes, pk=bike_id)
+
+    if not hasattr(request.user, 'owner_profile') or bike.owner != request.user.owner_profile:
+        return Response({'error': 'Not authorized to edit this bike'}, status=status.HTTP_403_FORBIDDEN)
+
+    # Block hardware-managed and ownership fields from being changed here
+    protected = {'owner', 'is_active', 'hardware', 'hardware_status', 'latitude', 'longitude',
+                 'last_location_update', 'total_earnings', 'total_trips', 'total_distance'}
+    data = {k: v for k, v in request.data.items() if k not in protected}
+
+    serializer = BikesSerializer(bike, data=data, partial=True, context={'request': request})
     if serializer.is_valid():
-        bike = serializer.save()
-        
-        # Send notification through WebSocket
-        channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            f'notifications_{request.user.id}',
-            {
-                'type': 'send_notification',
-                'title': 'Bike Added',
-                'message': f'Bike {bike.bike_name} has been added successfully',
-                'data': serializer.data
-            }
-        )
-        
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 @api_view(['DELETE'])
 @authentication_classes([JWTAuthentication])

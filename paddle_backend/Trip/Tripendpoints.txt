@@ -1,0 +1,52 @@
+{
+  "endpoints": [
+    {
+      "name": "start_trip",
+      "method": "POST",
+      "url": "/api/trips/{trip_id}/start/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {},
+      "response": {
+        "message": "Trip started successfully",
+        "start_time": "2023-07-15T14:30:22Z"
+      }
+    },
+    {
+      "name": "end_trip",
+      "method": "POST",
+      "url": "/api/trips/{trip_id}/end/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {},
+      "response": {
+        "message": "Trip completed successfully",
+        "duration_hours": 1.5,
+        "distance_km": 7.2,
+        "final_price": 24.99,
+        "commission": 4.99,
+        "owner_payout": 19.99,
+        "payment_intent": "pi_3NJKLmCZ6qsJgndV0PNEcgAN_secret_vRCmgHRuywMXOWATXCg8cxhUB"
+      },
+      "error_response": {
+        "error": "Payment failed",
+        "message": "Your card was declined"
+      }
+    },
+    {
+      "name": "cancel_trip",
+      "method": "POST",
+      "url": "/api/trips/{trip_id}/cancel/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {},
+      "response": {
+        "message": "Trip canceled successfully"
+      },
+      "error_response": {
+        "error": "Trip cannot be canceled at this stage",
+        "status": 400
+      }
+    }
+  ]
+}

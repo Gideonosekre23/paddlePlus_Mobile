@@ -1,0 +1,234 @@
+{
+  "endpoints": [
+    {
+      "name": "Rider_list",
+      "method": "GET",
+      "url": "/api/riders/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {},
+      "response": [
+        {
+          "id": 1,
+          "user": {
+            "id": 1,
+            "username": "rider1",
+            "email": "rider1@example.com"
+          },
+          "phone_number": "+12025550123",
+          "cpn": "ABC123456",
+          "latitude": 37.7749,
+          "longitude": -122.4194,
+          "profile_picture": "https://example.com/profiles/rider1.jpg",
+          "verification_status": "verified"
+        },
+        {
+          "id": 2,
+          "user": {
+            "id": 2,
+            "username": "rider2",
+            "email": "rider2@example.com"
+          },
+          "phone_number": "+12025550124",
+          "cpn": "DEF789012",
+          "latitude": 37.7833,
+          "longitude": -122.4167,
+          "profile_picture": "https://example.com/profiles/rider2.jpg",
+          "verification_status": "verified"
+        }
+      ]
+    },
+    {
+      "name": "check_token_validity",
+      "method": "GET",
+      "url": "/api/riders/token/check/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {},
+      "response": {
+        "message": "Token is valid"
+      }
+    },
+    {
+      "name": "register_Rider",
+      "method": "POST",
+      "url": "/api/riders/register/",
+      "authentication": "None",
+      "permissions": "AllowAny",
+      "request_phase1": {
+        "username": "newrider",
+        "email": "newrider@example.com",
+        "password": "securepassword123"
+      },
+      "response_phase1": {
+        "message": "Basic info validated. Proceed to next step.",
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6Im5ld3JpZGVyIiwiZW1haWwiOiJuZXdyaWRlckBleGFtcGxlLmNvbSIsInBhc3N3b3JkIjoic2VjdXJlcGFzc3dvcmQxMjMiLCJpc19zb2NpYWwiOmZhbHNlLCJleHAiOjE2MjYzNjQ1MDB9.example_token_signature"
+      },
+      "request_phase2": {
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6Im5ld3JpZGVyIiwiZW1haWwiOiJuZXdyaWRlckBleGFtcGxlLmNvbSIsInBhc3N3b3JkIjoic2VjdXJlcGFzc3dvcmQxMjMiLCJpc19zb2NpYWwiOmZhbHNlLCJleHAiOjE2MjYzNjQ1MDB9.example_token_signature",
+        "cpn": "GHI345678",
+        "phone_number": "+12025550125",
+        "latitude": 37.7695,
+        "longitude": -122.4268,
+        "profile_picture": "https://example.com/profiles/newrider.jpg"
+      },
+      "response_phase2": {
+        "message": "Verification session started",
+        "verification_url": "https://verify.stripe.com/start/test_verification_session",
+        "session_id": "vs_123456789",
+        "websocket_url": "ws://127.0.0.1:8000/ws/verification/vs_123456789/"
+      }
+    },
+    {
+      "name": "Login_Rider",
+      "method": "POST",
+      "url": "/api/riders/login/",
+      "authentication": "None",
+      "permissions": "AllowAny",
+      "request_traditional": {
+        "username": "rider1",
+        "password": "securepassword123"
+      },
+      "request_social": {
+        "provider": "google",
+        "token": "google_oauth_token_123456"
+      },
+      "response": {
+        "user": {
+          "username": "rider1",
+          "email": "rider1@example.com",
+          "phone_number": "+12025550123",
+          "profile_picture": "https://example.com/profiles/rider1.jpg",
+          "address": "123 Main St, San Francisco, CA",
+          "verification_status": "verified",
+          "access": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjI2MzY0NTAwLCJpYXQiOjE2MjYzNjA5MDAsImp0aSI6ImV4YW1wbGVfand0X2lkIiwidXNlcl9pZCI6MX0.example_access_token",
+          "refresh": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTYyNjQ0NzMwMCwiaWF0IjoxNjI2MzYwOTAwLCJqdGkiOiJleGFtcGxlX2p3dF9yZWZyZXNoX2lkIiwidXNlcl9pZCI6MX0.example_refresh_token",
+          "notification_channel": "user_1_eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjI2MzY0NTAwLCJpYXQiOjE2MjYzNjA5MDAsImp0aSI6ImV4YW1wbGVfand0X2lkIiwidXNlcl9pZCI6MX0.example_access_token",
+          "ws_url": "/ws/notifications/user_1_eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjI2MzY0NTAwLCJpYXQiOjE2MjYzNjA5MDAsImp0aSI6ImV4YW1wbGVfand0X2lkIiwidXNlcl9pZCI6MX0.example_access_token/"
+        }
+      }
+    },
+    {
+      "name": "verification_webhook",
+      "method": "POST",
+      "url": "/api/riders/verification/webhook/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {
+        "id": "evt_123456789",
+        "type": "identity.verification_session.verified",
+        "data": {
+          "object": {
+            "id": "vs_123456789",
+            "status": "verified"
+          }
+        }
+      },
+      "response": {
+        "status": "verification successful"
+      }
+    },
+    {
+      "name": "Logout_Rider",
+      "method": "POST",
+      "url": "/api/riders/logout/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {
+        "refresh": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTYyNjQ0NzMwMCwiaWF0IjoxNjI2MzYwOTAwLCJqdGkiOiJleGFtcGxlX2p3dF9yZWZyZXNoX2lkIiwidXNlcl9pZCI6MX0.example_refresh_token"
+      },
+      "response": {
+        "message": "Successfully logged out"
+      }
+    },
+    {
+      "name": "update_Rider_profile",
+      "method": "PUT",
+      "url": "/api/riders/profile/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {
+        "phone_number": "+12025550126",
+        "latitude": 37.7695,
+        "longitude": -122.4268,
+        "profile_picture": "https://example.com/profiles/updated_rider1.jpg"
+      },
+      "response": {
+        "message": "Profile updated successfully"
+      }
+    },
+    {
+      "name": "delete_Rider_profile",
+      "method": "DELETE",
+      "url": "/api/riders/profile/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {},
+      "response": {
+        "message": "User profile deleted successfully"
+      }
+    },
+    {
+      "name": "search_Rider_profile",
+      "method": "GET",
+      "url": "/api/riders/search/{username}/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {},
+      "response": {
+        "id": 1,
+        "user": {
+          "id": 1,
+          "username": "rider1",
+          "email": "rider1@example.com"
+        },
+        "phone_number": "+12025550123",
+        "cpn": "ABC123456",
+        "latitude": 37.7749,
+        "longitude": -122.4194,
+        "profile_picture": "https://example.com/profiles/rider1.jpg",
+        "verification_status": "verified"
+      }
+    },
+    {
+      "name": "update_location",
+      "method": "POST",
+      "url": "/api/riders/location/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {
+        "latitude": 37.7695,
+        "longitude": -122.4268
+      },
+      "response": {
+        "status": "location updated"
+      }
+    },
+    {
+      "name": "stripe_webhook",
+      "method": "POST",
+      "url": "/webhook/stripe/rider/",
+      "authentication": "None",
+      "permissions": "None",
+      "request": {
+        "Stripe-Signature": "t=1626360900,v1=example_signature",
+        "body": {
+          "id": "evt_123456789",
+          "type": "identity.verification_session.verified",
+          "data": {
+            "object": {
+              "id": "vs_123456789",
+              "metadata": {
+                "rider_id": "1"
+              },
+              "status": "verified"
+            }
+          }
+        }
+      },
+      "response": {
+        "status": 200
+      }
+    }
+  ]
+}

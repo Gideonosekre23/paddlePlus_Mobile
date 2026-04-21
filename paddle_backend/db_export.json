@@ -1,0 +1,1698 @@
+{
+  "auth.permission": [
+    {
+      "model": "auth.permission",
+      "pk": 29,
+      "fields": {
+        "name": "Can add bike hardware",
+        "content_type": 8,
+        "codename": "add_bikehardware"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 30,
+      "fields": {
+        "name": "Can change bike hardware",
+        "content_type": 8,
+        "codename": "change_bikehardware"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 31,
+      "fields": {
+        "name": "Can delete bike hardware",
+        "content_type": 8,
+        "codename": "delete_bikehardware"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 32,
+      "fields": {
+        "name": "Can view bike hardware",
+        "content_type": 8,
+        "codename": "view_bikehardware"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 33,
+      "fields": {
+        "name": "Can add bikes",
+        "content_type": 9,
+        "codename": "add_bikes"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 34,
+      "fields": {
+        "name": "Can change bikes",
+        "content_type": 9,
+        "codename": "change_bikes"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 35,
+      "fields": {
+        "name": "Can delete bikes",
+        "content_type": 9,
+        "codename": "delete_bikes"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 36,
+      "fields": {
+        "name": "Can view bikes",
+        "content_type": 9,
+        "codename": "view_bikes"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 37,
+      "fields": {
+        "name": "Can add owner profile",
+        "content_type": 10,
+        "codename": "add_ownerprofile"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 38,
+      "fields": {
+        "name": "Can change owner profile",
+        "content_type": 10,
+        "codename": "change_ownerprofile"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 39,
+      "fields": {
+        "name": "Can delete owner profile",
+        "content_type": 10,
+        "codename": "delete_ownerprofile"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 40,
+      "fields": {
+        "name": "Can view owner profile",
+        "content_type": 10,
+        "codename": "view_ownerprofile"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 25,
+      "fields": {
+        "name": "Can add user profile",
+        "content_type": 7,
+        "codename": "add_userprofile"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 26,
+      "fields": {
+        "name": "Can change user profile",
+        "content_type": 7,
+        "codename": "change_userprofile"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 27,
+      "fields": {
+        "name": "Can delete user profile",
+        "content_type": 7,
+        "codename": "delete_userprofile"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 28,
+      "fields": {
+        "name": "Can view user profile",
+        "content_type": 7,
+        "codename": "view_userprofile"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 41,
+      "fields": {
+        "name": "Can add ride_ request",
+        "content_type": 11,
+        "codename": "add_ride_request"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 42,
+      "fields": {
+        "name": "Can change ride_ request",
+        "content_type": 11,
+        "codename": "change_ride_request"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 43,
+      "fields": {
+        "name": "Can delete ride_ request",
+        "content_type": 11,
+        "codename": "delete_ride_request"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 44,
+      "fields": {
+        "name": "Can view ride_ request",
+        "content_type": 11,
+        "codename": "view_ride_request"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 45,
+      "fields": {
+        "name": "Can add trip",
+        "content_type": 12,
+        "codename": "add_trip"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 46,
+      "fields": {
+        "name": "Can change trip",
+        "content_type": 12,
+        "codename": "change_trip"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 47,
+      "fields": {
+        "name": "Can delete trip",
+        "content_type": 12,
+        "codename": "delete_trip"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 48,
+      "fields": {
+        "name": "Can view trip",
+        "content_type": 12,
+        "codename": "view_trip"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 61,
+      "fields": {
+        "name": "Can add email address",
+        "content_type": 16,
+        "codename": "add_emailaddress"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 62,
+      "fields": {
+        "name": "Can change email address",
+        "content_type": 16,
+        "codename": "change_emailaddress"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 63,
+      "fields": {
+        "name": "Can delete email address",
+        "content_type": 16,
+        "codename": "delete_emailaddress"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 64,
+      "fields": {
+        "name": "Can view email address",
+        "content_type": 16,
+        "codename": "view_emailaddress"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 65,
+      "fields": {
+        "name": "Can add email confirmation",
+        "content_type": 17,
+        "codename": "add_emailconfirmation"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 66,
+      "fields": {
+        "name": "Can change email confirmation",
+        "content_type": 17,
+        "codename": "change_emailconfirmation"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 67,
+      "fields": {
+        "name": "Can delete email confirmation",
+        "content_type": 17,
+        "codename": "delete_emailconfirmation"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 68,
+      "fields": {
+        "name": "Can view email confirmation",
+        "content_type": 17,
+        "codename": "view_emailconfirmation"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 13,
+      "fields": {
+        "name": "Can add log entry",
+        "content_type": 4,
+        "codename": "add_logentry"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 14,
+      "fields": {
+        "name": "Can change log entry",
+        "content_type": 4,
+        "codename": "change_logentry"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 15,
+      "fields": {
+        "name": "Can delete log entry",
+        "content_type": 4,
+        "codename": "delete_logentry"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 16,
+      "fields": {
+        "name": "Can view log entry",
+        "content_type": 4,
+        "codename": "view_logentry"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 5,
+      "fields": {
+        "name": "Can add group",
+        "content_type": 2,
+        "codename": "add_group"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 6,
+      "fields": {
+        "name": "Can change group",
+        "content_type": 2,
+        "codename": "change_group"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 7,
+      "fields": {
+        "name": "Can delete group",
+        "content_type": 2,
+        "codename": "delete_group"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 8,
+      "fields": {
+        "name": "Can view group",
+        "content_type": 2,
+        "codename": "view_group"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 1,
+      "fields": {
+        "name": "Can add permission",
+        "content_type": 1,
+        "codename": "add_permission"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 2,
+      "fields": {
+        "name": "Can change permission",
+        "content_type": 1,
+        "codename": "change_permission"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 3,
+      "fields": {
+        "name": "Can delete permission",
+        "content_type": 1,
+        "codename": "delete_permission"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 4,
+      "fields": {
+        "name": "Can view permission",
+        "content_type": 1,
+        "codename": "view_permission"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 9,
+      "fields": {
+        "name": "Can add user",
+        "content_type": 3,
+        "codename": "add_user"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 10,
+      "fields": {
+        "name": "Can change user",
+        "content_type": 3,
+        "codename": "change_user"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 11,
+      "fields": {
+        "name": "Can delete user",
+        "content_type": 3,
+        "codename": "delete_user"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 12,
+      "fields": {
+        "name": "Can view user",
+        "content_type": 3,
+        "codename": "view_user"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 49,
+      "fields": {
+        "name": "Can add chat room",
+        "content_type": 13,
+        "codename": "add_chatroom"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 50,
+      "fields": {
+        "name": "Can change chat room",
+        "content_type": 13,
+        "codename": "change_chatroom"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 51,
+      "fields": {
+        "name": "Can delete chat room",
+        "content_type": 13,
+        "codename": "delete_chatroom"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 52,
+      "fields": {
+        "name": "Can view chat room",
+        "content_type": 13,
+        "codename": "view_chatroom"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 53,
+      "fields": {
+        "name": "Can add message",
+        "content_type": 14,
+        "codename": "add_message"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 54,
+      "fields": {
+        "name": "Can change message",
+        "content_type": 14,
+        "codename": "change_message"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 55,
+      "fields": {
+        "name": "Can delete message",
+        "content_type": 14,
+        "codename": "delete_message"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 56,
+      "fields": {
+        "name": "Can view message",
+        "content_type": 14,
+        "codename": "view_message"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 17,
+      "fields": {
+        "name": "Can add content type",
+        "content_type": 5,
+        "codename": "add_contenttype"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 18,
+      "fields": {
+        "name": "Can change content type",
+        "content_type": 5,
+        "codename": "change_contenttype"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 19,
+      "fields": {
+        "name": "Can delete content type",
+        "content_type": 5,
+        "codename": "delete_contenttype"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 20,
+      "fields": {
+        "name": "Can view content type",
+        "content_type": 5,
+        "codename": "view_contenttype"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 21,
+      "fields": {
+        "name": "Can add session",
+        "content_type": 6,
+        "codename": "add_session"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 22,
+      "fields": {
+        "name": "Can change session",
+        "content_type": 6,
+        "codename": "change_session"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 23,
+      "fields": {
+        "name": "Can delete session",
+        "content_type": 6,
+        "codename": "delete_session"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 24,
+      "fields": {
+        "name": "Can view session",
+        "content_type": 6,
+        "codename": "view_session"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 57,
+      "fields": {
+        "name": "Can add site",
+        "content_type": 15,
+        "codename": "add_site"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 58,
+      "fields": {
+        "name": "Can change site",
+        "content_type": 15,
+        "codename": "change_site"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 59,
+      "fields": {
+        "name": "Can delete site",
+        "content_type": 15,
+        "codename": "delete_site"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 60,
+      "fields": {
+        "name": "Can view site",
+        "content_type": 15,
+        "codename": "view_site"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 69,
+      "fields": {
+        "name": "Can add social account",
+        "content_type": 18,
+        "codename": "add_socialaccount"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 70,
+      "fields": {
+        "name": "Can change social account",
+        "content_type": 18,
+        "codename": "change_socialaccount"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 71,
+      "fields": {
+        "name": "Can delete social account",
+        "content_type": 18,
+        "codename": "delete_socialaccount"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 72,
+      "fields": {
+        "name": "Can view social account",
+        "content_type": 18,
+        "codename": "view_socialaccount"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 73,
+      "fields": {
+        "name": "Can add social application",
+        "content_type": 19,
+        "codename": "add_socialapp"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 74,
+      "fields": {
+        "name": "Can change social application",
+        "content_type": 19,
+        "codename": "change_socialapp"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 75,
+      "fields": {
+        "name": "Can delete social application",
+        "content_type": 19,
+        "codename": "delete_socialapp"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 76,
+      "fields": {
+        "name": "Can view social application",
+        "content_type": 19,
+        "codename": "view_socialapp"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 77,
+      "fields": {
+        "name": "Can add social application token",
+        "content_type": 20,
+        "codename": "add_socialtoken"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 78,
+      "fields": {
+        "name": "Can change social application token",
+        "content_type": 20,
+        "codename": "change_socialtoken"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 79,
+      "fields": {
+        "name": "Can delete social application token",
+        "content_type": 20,
+        "codename": "delete_socialtoken"
+      }
+    },
+    {
+      "model": "auth.permission",
+      "pk": 80,
+      "fields": {
+        "name": "Can view social application token",
+        "content_type": 20,
+        "codename": "view_socialtoken"
+      }
+    }
+  ],
+  "auth.user": [
+    {
+      "model": "auth.user",
+      "pk": 1,
+      "fields": {
+        "password": "pbkdf2_sha256$870000$j1pk3KCi1Xa7RlFHdYcvAr$uuu5cD+rNKE05EGZhbOMhJw2KixbCmWjbLH92WOllE0=",
+        "last_login": null,
+        "is_superuser": true,
+        "username": "newadmin",
+        "first_name": "",
+        "last_name": "",
+        "email": "weemanosekre@yahoo.com",
+        "is_staff": true,
+        "is_active": true,
+        "date_joined": "2025-01-02T20:38:25.198Z",
+        "groups": [],
+        "user_permissions": []
+      }
+    },
+    {
+      "model": "auth.user",
+      "pk": 2,
+      "fields": {
+        "password": "pbkdf2_sha256$870000$2kAWfkHbJVFzT859tzat6G$/z1aTsDYfePV03otOnLZobFWfaH73/ujppHHkMhUkXU=",
+        "last_login": "2025-01-02T23:26:32.508Z",
+        "is_superuser": true,
+        "username": "weeman",
+        "first_name": "",
+        "last_name": "",
+        "email": "weemanosekre@yahoo.com",
+        "is_staff": true,
+        "is_active": true,
+        "date_joined": "2025-01-02T20:40:59.960Z",
+        "groups": [],
+        "user_permissions": []
+      }
+    },
+    {
+      "model": "auth.user",
+      "pk": 3,
+      "fields": {
+        "password": "pbkdf2_sha256$1000000$uaC6Cw9YOH6dvVbqIyk5z8$b1NfWbalfOHrljCQWRJuNJm34aCiZAByNE8Fl3b3qYQ=",
+        "last_login": null,
+        "is_superuser": false,
+        "username": "owner1",
+        "first_name": "",
+        "last_name": "",
+        "email": "owner1@example.com",
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2025-01-04T23:31:15.881Z",
+        "groups": [],
+        "user_permissions": []
+      }
+    },
+    {
+      "model": "auth.user",
+      "pk": 4,
+      "fields": {
+        "password": "pbkdf2_sha256$870000$Lsqn7l35FHrkWpZl0nNKxW$VVDuVODRXGAqQ7l56xdD9I5EZQyVNHXmqbajpVeqkP8=",
+        "last_login": null,
+        "is_superuser": false,
+        "username": "owner2",
+        "first_name": "",
+        "last_name": "",
+        "email": "owner2@example.com",
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2025-01-04T23:31:17.432Z",
+        "groups": [],
+        "user_permissions": []
+      }
+    },
+    {
+      "model": "auth.user",
+      "pk": 5,
+      "fields": {
+        "password": "pbkdf2_sha256$870000$k4PGC7cjNcMjGc6IXYxXuS$PP/bc0y/RZy9gx5HXuF5jfOy1UkP+pdPjlZRRxhDzYM=",
+        "last_login": null,
+        "is_superuser": false,
+        "username": "owner3",
+        "first_name": "",
+        "last_name": "",
+        "email": "owner3@example.com",
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2025-01-04T23:31:18.558Z",
+        "groups": [],
+        "user_permissions": []
+      }
+    },
+    {
+      "model": "auth.user",
+      "pk": 6,
+      "fields": {
+        "password": "pbkdf2_sha256$720000$4j6TsJ8rQpOMO5A9MW4fCu$NYk6GCeWLC5qmSWKao72jSi7pA+OhtGnFsTNMV6wzq4=",
+        "last_login": null,
+        "is_superuser": false,
+        "username": "testriderr1",
+        "first_name": "",
+        "last_name": "",
+        "email": "riderr1@test.com",
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2025-01-13T05:03:19.411Z",
+        "groups": [],
+        "user_permissions": []
+      }
+    },
+    {
+      "model": "auth.user",
+      "pk": 7,
+      "fields": {
+        "password": "pbkdf2_sha256$720000$n3CnDMpuXZK9NRh9fUlcCw$I5QpsPYzT+Dr3JSs8mE2OFjP5T4PuSkan6rFr41HDKM=",
+        "last_login": null,
+        "is_superuser": false,
+        "username": "newrider123",
+        "first_name": "",
+        "last_name": "",
+        "email": "newrider123@test.com",
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2025-01-13T05:09:33.498Z",
+        "groups": [],
+        "user_permissions": []
+      }
+    },
+    {
+      "model": "auth.user",
+      "pk": 8,
+      "fields": {
+        "password": "pbkdf2_sha256$720000$Lh8CaivIHnp9GC7FOkmPRc$aEhObyBUMqmJbjMWrG4ZuNQyNR0Rb0uYs1D6rhKIC4E=",
+        "last_login": null,
+        "is_superuser": false,
+        "username": "newridertr123",
+        "first_name": "",
+        "last_name": "",
+        "email": "newrideree123@test.com",
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2025-01-13T05:29:42.244Z",
+        "groups": [],
+        "user_permissions": []
+      }
+    },
+    {
+      "model": "auth.user",
+      "pk": 9,
+      "fields": {
+        "password": "pbkdf2_sha256$720000$folYpE41sA6cc9QqoScaHr$wriizC69OcWjdUqajymeCybd3Ni4c9NAqtpSefrESVg=",
+        "last_login": null,
+        "is_superuser": false,
+        "username": "newriwwdertr123",
+        "first_name": "",
+        "last_name": "",
+        "email": "newrideree12er3@test.com",
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2025-01-13T06:08:11.346Z",
+        "groups": [],
+        "user_permissions": []
+      }
+    },
+    {
+      "model": "auth.user",
+      "pk": 10,
+      "fields": {
+        "password": "pbkdf2_sha256$720000$FZRl12yfZdDalaBblXuSGa$9bobLuZlaJQa7SrmHB9KP1aWGjIrzl9qhXHy7eLCTBI=",
+        "last_login": null,
+        "is_superuser": false,
+        "username": "newriwwderdvvtr123",
+        "first_name": "",
+        "last_name": "",
+        "email": "newrideree1cv2er3@test.com",
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2025-01-13T06:59:59.414Z",
+        "groups": [],
+        "user_permissions": []
+      }
+    },
+    {
+      "model": "auth.user",
+      "pk": 11,
+      "fields": {
+        "password": "pbkdf2_sha256$720000$au2tSaxwylnxYR7goxjkNh$t1Nei7i4x0BTFWMNA07p5XQnZBRc4QAwLRtpzUpQpfQ=",
+        "last_login": null,
+        "is_superuser": false,
+        "username": "testownegrer944",
+        "first_name": "",
+        "last_name": "",
+        "email": "testowner67@example.com",
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2025-01-14T07:55:07.789Z",
+        "groups": [],
+        "user_permissions": []
+      }
+    },
+    {
+      "model": "auth.user",
+      "pk": 12,
+      "fields": {
+        "password": "pbkdf2_sha256$720000$yw5i1Xqd1uiLaUIGScHwcD$UrM9EGyeQMGGysIWmccxEl36y+Br4xPsdrGoQg1WmlM=",
+        "last_login": null,
+        "is_superuser": false,
+        "username": "driverTest",
+        "first_name": "",
+        "last_name": "",
+        "email": "driver@yh.c",
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2025-01-16T22:18:43.716Z",
+        "groups": [],
+        "user_permissions": []
+      }
+    },
+    {
+      "model": "auth.user",
+      "pk": 13,
+      "fields": {
+        "password": "pbkdf2_sha256$720000$7Jn8rAItGXhdteTgTsomUv$p2AL+eNxv5agfER4JXluiqS5c+0yDWgn+TtPkfA5KSA=",
+        "last_login": null,
+        "is_superuser": false,
+        "username": "ownerTest",
+        "first_name": "",
+        "last_name": "",
+        "email": "ownertest@2sad",
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2025-01-16T22:20:18.031Z",
+        "groups": [],
+        "user_permissions": []
+      }
+    },
+    {
+      "model": "auth.user",
+      "pk": 14,
+      "fields": {
+        "password": "pbkdf2_sha256$720000$TPUkTLDpj7HGYTVn18vEi1$7gCG0XgMK9I9LmHr46Vdwrg1wCN1D8C+fMuTNGrbvYk=",
+        "last_login": null,
+        "is_superuser": false,
+        "username": "asd",
+        "first_name": "",
+        "last_name": "",
+        "email": "asd@a",
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2025-01-17T12:25:45.860Z",
+        "groups": [],
+        "user_permissions": []
+      }
+    },
+    {
+      "model": "auth.user",
+      "pk": 15,
+      "fields": {
+        "password": "pbkdf2_sha256$720000$D5aCrcLdEIsVZOi9TG4pWD$KpEjlx1fkC6X6azdYOilOigfSjJXnmy/M6j5JqvD9pw=",
+        "last_login": null,
+        "is_superuser": false,
+        "username": "asd2",
+        "first_name": "",
+        "last_name": "",
+        "email": "asd2@e",
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2025-01-17T12:28:20.306Z",
+        "groups": [],
+        "user_permissions": []
+      }
+    },
+    {
+      "model": "auth.user",
+      "pk": 16,
+      "fields": {
+        "password": "pbkdf2_sha256$720000$vN2L4jlDkMi7FvALUZpzZr$qXjIhB83UPJamX2jN2/F53+VblYISA9oiFTNpB7CyQ4=",
+        "last_login": null,
+        "is_superuser": false,
+        "username": "rider_test456",
+        "first_name": "",
+        "last_name": "",
+        "email": "rider_test456@example.com",
+        "is_staff": false,
+        "is_active": true,
+        "date_joined": "2025-04-05T17:10:29.248Z",
+        "groups": [],
+        "user_permissions": []
+      }
+    }
+  ],
+  "contenttypes.contenttype": [
+    {
+      "model": "contenttypes.contenttype",
+      "pk": 1,
+      "fields": {
+        "app_label": "auth",
+        "model": "permission"
+      }
+    },
+    {
+      "model": "contenttypes.contenttype",
+      "pk": 2,
+      "fields": {
+        "app_label": "auth",
+        "model": "group"
+      }
+    },
+    {
+      "model": "contenttypes.contenttype",
+      "pk": 3,
+      "fields": {
+        "app_label": "auth",
+        "model": "user"
+      }
+    },
+    {
+      "model": "contenttypes.contenttype",
+      "pk": 4,
+      "fields": {
+        "app_label": "admin",
+        "model": "logentry"
+      }
+    },
+    {
+      "model": "contenttypes.contenttype",
+      "pk": 5,
+      "fields": {
+        "app_label": "contenttypes",
+        "model": "contenttype"
+      }
+    },
+    {
+      "model": "contenttypes.contenttype",
+      "pk": 6,
+      "fields": {
+        "app_label": "sessions",
+        "model": "session"
+      }
+    },
+    {
+      "model": "contenttypes.contenttype",
+      "pk": 7,
+      "fields": {
+        "app_label": "Rider",
+        "model": "userprofile"
+      }
+    },
+    {
+      "model": "contenttypes.contenttype",
+      "pk": 8,
+      "fields": {
+        "app_label": "Bikes",
+        "model": "bikehardware"
+      }
+    },
+    {
+      "model": "contenttypes.contenttype",
+      "pk": 9,
+      "fields": {
+        "app_label": "Bikes",
+        "model": "bikes"
+      }
+    },
+    {
+      "model": "contenttypes.contenttype",
+      "pk": 10,
+      "fields": {
+        "app_label": "Owner",
+        "model": "ownerprofile"
+      }
+    },
+    {
+      "model": "contenttypes.contenttype",
+      "pk": 11,
+      "fields": {
+        "app_label": "Riderequest",
+        "model": "ride_request"
+      }
+    },
+    {
+      "model": "contenttypes.contenttype",
+      "pk": 12,
+      "fields": {
+        "app_label": "Trip",
+        "model": "trip"
+      }
+    },
+    {
+      "model": "contenttypes.contenttype",
+      "pk": 13,
+      "fields": {
+        "app_label": "chat",
+        "model": "chatroom"
+      }
+    },
+    {
+      "model": "contenttypes.contenttype",
+      "pk": 14,
+      "fields": {
+        "app_label": "chat",
+        "model": "message"
+      }
+    },
+    {
+      "model": "contenttypes.contenttype",
+      "pk": 15,
+      "fields": {
+        "app_label": "sites",
+        "model": "site"
+      }
+    },
+    {
+      "model": "contenttypes.contenttype",
+      "pk": 16,
+      "fields": {
+        "app_label": "account",
+        "model": "emailaddress"
+      }
+    },
+    {
+      "model": "contenttypes.contenttype",
+      "pk": 17,
+      "fields": {
+        "app_label": "account",
+        "model": "emailconfirmation"
+      }
+    },
+    {
+      "model": "contenttypes.contenttype",
+      "pk": 18,
+      "fields": {
+        "app_label": "socialaccount",
+        "model": "socialaccount"
+      }
+    },
+    {
+      "model": "contenttypes.contenttype",
+      "pk": 19,
+      "fields": {
+        "app_label": "socialaccount",
+        "model": "socialapp"
+      }
+    },
+    {
+      "model": "contenttypes.contenttype",
+      "pk": 20,
+      "fields": {
+        "app_label": "socialaccount",
+        "model": "socialtoken"
+      }
+    }
+  ],
+  "sessions.session": [
+    {
+      "model": "sessions.session",
+      "pk": "svfdkzalcljqm1za5jbgecwluikl75i7",
+      "fields": {
+        "session_data": ".eJxVjEEOwiAQAP_C2RBgKaBH776B7LKLrZo2Ke3J-HdD0oNeZybzVhn3bcx7kzVPrC7KqdMvIyxPmbvgB873RZdl3taJdE_0YZu-LSyv69H-DUZsY996ywS2DmjECJMjqMFCjCkWrOQpVnLeWC8AIRJ4x8JhgFRLwrNY9fkC7Nw4Ig:1tTU01:rt_MjIb54R9TJEarLSsdkY1N5rFPH2m1ZYMnd4Qxlf8",
+        "expire_date": "2025-01-16T22:49:05.066Z"
+      }
+    },
+    {
+      "model": "sessions.session",
+      "pk": "vr7vxhp6g5rl0wazmolf22pxgafsc3wf",
+      "fields": {
+        "session_data": ".eJxVjEEOwiAQAP_C2RBgKaBH776B7LKLrZo2Ke3J-HdD0oNeZybzVhn3bcx7kzVPrC7KqdMvIyxPmbvgB873RZdl3taJdE_0YZu-LSyv69H-DUZsY996ywS2DmjECJMjqMFCjCkWrOQpVnLeWC8AIRJ4x8JhgFRLwrNY9fkC7Nw4Ig:1tTUaG:NhIKZ0e3jmhzIEoREp2z8Qlc8iLlhQeB-oK-YbJNuHw",
+        "expire_date": "2025-01-16T23:26:32.580Z"
+      }
+    }
+  ],
+  "sites.site": [
+    {
+      "model": "sites.site",
+      "pk": 1,
+      "fields": {
+        "domain": "example.com",
+        "name": "example.com"
+      }
+    }
+  ],
+  "Rider.userprofile": [
+    {
+      "model": "Rider.userprofile",
+      "pk": 1,
+      "fields": {
+        "user": 6,
+        "cpn": "CPN654321",
+        "phone_number": "+1987654321",
+        "address": "",
+        "profile_picture": "https://example.com/photo.jpg",
+        "age": null,
+        "is_subscribed_to_newsletter": false,
+        "latitude": 40.7128,
+        "longitude": -74.006,
+        "verification_status": "pending",
+        "verification_session_id": "vs_1Qgfo0P0RVzDLoXbOA6jG4GI",
+        "created_at": "2025-01-13T05:03:20.669Z",
+        "updated_at": "2025-01-13T05:03:20.669Z"
+      }
+    },
+    {
+      "model": "Rider.userprofile",
+      "pk": 2,
+      "fields": {
+        "user": 7,
+        "cpn": "CPN654321",
+        "phone_number": "+1987654321",
+        "address": "",
+        "profile_picture": "https://example.com/photo.jpg",
+        "age": null,
+        "is_subscribed_to_newsletter": false,
+        "latitude": 40.7128,
+        "longitude": -74.006,
+        "verification_status": "pending",
+        "verification_session_id": "vs_1Qgfu3P0RVzDLoXbzHeNPQKd",
+        "created_at": "2025-01-13T05:09:34.412Z",
+        "updated_at": "2025-01-13T05:09:34.412Z"
+      }
+    },
+    {
+      "model": "Rider.userprofile",
+      "pk": 3,
+      "fields": {
+        "user": 8,
+        "cpn": "CPN654321",
+        "phone_number": "+1987654321",
+        "address": "",
+        "profile_picture": "",
+        "age": null,
+        "is_subscribed_to_newsletter": false,
+        "latitude": 40.7128,
+        "longitude": -74.006,
+        "verification_status": "verified",
+        "verification_session_id": "vs_1QggCcP0RVzDLoXbwlzCztit",
+        "created_at": "2025-01-13T05:29:43.990Z",
+        "updated_at": "2025-01-13T05:29:43.990Z"
+      }
+    },
+    {
+      "model": "Rider.userprofile",
+      "pk": 4,
+      "fields": {
+        "user": 9,
+        "cpn": "CPN654321",
+        "phone_number": "+1987654321",
+        "address": "",
+        "profile_picture": "",
+        "age": null,
+        "is_subscribed_to_newsletter": false,
+        "latitude": 40.7128,
+        "longitude": -74.006,
+        "verification_status": "verified",
+        "verification_session_id": "vs_1Qggo8P0RVzDLoXb2VGvM10A",
+        "created_at": "2025-01-13T06:08:12.651Z",
+        "updated_at": "2025-01-13T06:08:12.651Z"
+      }
+    },
+    {
+      "model": "Rider.userprofile",
+      "pk": 5,
+      "fields": {
+        "user": 10,
+        "cpn": "CPN654321",
+        "phone_number": "+1987654321",
+        "address": "",
+        "profile_picture": "",
+        "age": null,
+        "is_subscribed_to_newsletter": false,
+        "latitude": 40.7128,
+        "longitude": -74.006,
+        "verification_status": "verified",
+        "verification_session_id": "vs_1QghbuP0RVzDLoXbaTLWzxyq",
+        "created_at": "2025-01-13T07:00:00.811Z",
+        "updated_at": "2025-01-13T07:00:00.811Z"
+      }
+    },
+    {
+      "model": "Rider.userprofile",
+      "pk": 6,
+      "fields": {
+        "user": 12,
+        "cpn": "aeae",
+        "phone_number": "123",
+        "address": "",
+        "profile_picture": "",
+        "age": null,
+        "is_subscribed_to_newsletter": false,
+        "latitude": 0.0,
+        "longitude": 0.0,
+        "verification_status": "verified",
+        "verification_session_id": "vs_1Qi1OVP0RVzDLoXbE3xZZJ7U",
+        "created_at": "2025-01-16T22:18:44.746Z",
+        "updated_at": "2025-01-16T22:18:44.746Z"
+      }
+    },
+    {
+      "model": "Rider.userprofile",
+      "pk": 7,
+      "fields": {
+        "user": 15,
+        "cpn": "asd",
+        "phone_number": "asd",
+        "address": "",
+        "profile_picture": "",
+        "age": null,
+        "is_subscribed_to_newsletter": false,
+        "latitude": 0.0,
+        "longitude": 0.0,
+        "verification_status": "verified",
+        "verification_session_id": "vs_1QiEemP0RVzDLoXbkM1am95A",
+        "created_at": "2025-01-17T12:28:21.091Z",
+        "updated_at": "2025-01-17T12:28:21.091Z"
+      }
+    },
+    {
+      "model": "Rider.userprofile",
+      "pk": 8,
+      "fields": {
+        "user": 16,
+        "cpn": "1234567890",
+        "phone_number": "+1234567890",
+        "address": "",
+        "profile_picture": "",
+        "age": null,
+        "is_subscribed_to_newsletter": false,
+        "latitude": 37.7749,
+        "longitude": -122.4194,
+        "verification_status": "verified",
+        "verification_session_id": "vs_1RAaDVP0RVzDLoXbPyP4XXRJ",
+        "created_at": "2025-04-05T17:10:30.163Z",
+        "updated_at": "2025-04-05T17:10:30.163Z"
+      }
+    }
+  ],
+  "Bikes.bikehardware": [
+    {
+      "model": "Bikes.bikehardware",
+      "pk": 1,
+      "fields": {
+        "serial_number": "HW001",
+        "factory_key": "key123",
+        "is_assigned": false,
+        "last_ping": null,
+        "battery_level": 95,
+        "last_location_update": null,
+        "latitude": null,
+        "longitude": null
+      }
+    },
+    {
+      "model": "Bikes.bikehardware",
+      "pk": 2,
+      "fields": {
+        "serial_number": "HW002",
+        "factory_key": "key456",
+        "is_assigned": false,
+        "last_ping": null,
+        "battery_level": 87,
+        "last_location_update": null,
+        "latitude": null,
+        "longitude": null
+      }
+    },
+    {
+      "model": "Bikes.bikehardware",
+      "pk": 3,
+      "fields": {
+        "serial_number": "HW003",
+        "factory_key": "key789",
+        "is_assigned": false,
+        "last_ping": null,
+        "battery_level": 92,
+        "last_location_update": null,
+        "latitude": null,
+        "longitude": null
+      }
+    }
+  ],
+  "Bikes.bikes": [
+    {
+      "model": "Bikes.bikes",
+      "pk": 6,
+      "fields": {
+        "owner": 1,
+        "bike_name": "Test Bike",
+        "brand": "TestBrand",
+        "model": "TestModel",
+        "color": "Blue",
+        "size": "Medium",
+        "year": 2023,
+        "description": "Test bike description",
+        "is_available": false,
+        "is_active": false,
+        "bike_status": "disabled",
+        "latitude": null,
+        "longitude": null,
+        "last_location_update": "2025-05-29T18:45:23.853Z",
+        "hardware": null,
+        "hardware_status": "inactive",
+        "last_unlock_time": null,
+        "last_lock_time": null,
+        "total_trips": 0,
+        "total_distance": "0.00",
+        "rating": "5.00",
+        "created_at": "2025-05-29T18:45:23.853Z",
+        "updated_at": "2025-05-29T18:45:23.853Z"
+      }
+    },
+    {
+      "model": "Bikes.bikes",
+      "pk": 5,
+      "fields": {
+        "owner": 5,
+        "bike_name": "asd",
+        "brand": "asd",
+        "model": "aas",
+        "color": "ads",
+        "size": "asd",
+        "year": 22,
+        "description": "asd",
+        "is_available": false,
+        "is_active": false,
+        "bike_status": "disabled",
+        "latitude": 45.74461490376492,
+        "longitude": 21.22372589344346,
+        "last_location_update": "2025-01-17T11:16:44.197Z",
+        "hardware": null,
+        "hardware_status": "inactive",
+        "last_unlock_time": null,
+        "last_lock_time": null,
+        "total_trips": 0,
+        "total_distance": "0.00",
+        "rating": "5.00",
+        "created_at": "2025-01-17T11:16:44.198Z",
+        "updated_at": "2025-01-17T11:16:44.198Z"
+      }
+    },
+    {
+      "model": "Bikes.bikes",
+      "pk": 4,
+      "fields": {
+        "owner": 1,
+        "bike_name": "Mountain Explorer",
+        "brand": "Trek",
+        "model": "X-Caliber 8",
+        "color": "Blue",
+        "size": "M",
+        "year": 2023,
+        "description": "High-performance mountain bike perfect for trails",
+        "is_available": false,
+        "is_active": false,
+        "bike_status": "disabled",
+        "latitude": null,
+        "longitude": null,
+        "last_location_update": "2025-01-17T10:12:23.625Z",
+        "hardware": null,
+        "hardware_status": "inactive",
+        "last_unlock_time": null,
+        "last_lock_time": null,
+        "total_trips": 0,
+        "total_distance": "0.00",
+        "rating": "5.00",
+        "created_at": "2025-01-17T10:12:23.626Z",
+        "updated_at": "2025-01-17T10:12:23.626Z"
+      }
+    },
+    {
+      "model": "Bikes.bikes",
+      "pk": 3,
+      "fields": {
+        "owner": 3,
+        "bike_name": "Urban Commuter",
+        "brand": "Giant",
+        "model": "Escape",
+        "color": "Black",
+        "size": "M",
+        "year": 2023,
+        "description": "Reliable commuter bike",
+        "is_available": true,
+        "is_active": true,
+        "bike_status": "available",
+        "latitude": 45.74705,
+        "longitude": 21.23487,
+        "last_location_update": "2025-01-04T23:56:43.432Z",
+        "hardware": 3,
+        "hardware_status": "active",
+        "last_unlock_time": null,
+        "last_lock_time": null,
+        "total_trips": 0,
+        "total_distance": "0.00",
+        "rating": "5.00",
+        "created_at": "2025-01-04T23:56:43.432Z",
+        "updated_at": "2025-01-04T23:56:43.432Z"
+      }
+    },
+    {
+      "model": "Bikes.bikes",
+      "pk": 2,
+      "fields": {
+        "owner": 2,
+        "bike_name": "Mountain Explorer",
+        "brand": "Specialized",
+        "model": "Rockhopper",
+        "color": "Red",
+        "size": "L",
+        "year": 2023,
+        "description": "Great mountain bike",
+        "is_available": true,
+        "is_active": true,
+        "bike_status": "available",
+        "latitude": 45.74428,
+        "longitude": 21.20898,
+        "last_location_update": "2025-01-04T23:56:43.308Z",
+        "hardware": 2,
+        "hardware_status": "active",
+        "last_unlock_time": null,
+        "last_lock_time": null,
+        "total_trips": 0,
+        "total_distance": "0.00",
+        "rating": "5.00",
+        "created_at": "2025-01-04T23:56:43.308Z",
+        "updated_at": "2025-01-04T23:56:43.308Z"
+      }
+    },
+    {
+      "model": "Bikes.bikes",
+      "pk": 1,
+      "fields": {
+        "owner": 1,
+        "bike_name": "City Cruiser",
+        "brand": "Trek",
+        "model": "FX3",
+        "color": "Blue",
+        "size": "M",
+        "year": 2023,
+        "description": "Perfect city bike",
+        "is_available": true,
+        "is_active": true,
+        "bike_status": "available",
+        "latitude": 45.74732,
+        "longitude": 21.23135,
+        "last_location_update": "2025-01-17T10:28:26.289Z",
+        "hardware": 1,
+        "hardware_status": "active",
+        "last_unlock_time": null,
+        "last_lock_time": null,
+        "total_trips": 0,
+        "total_distance": "0.00",
+        "rating": "5.00",
+        "created_at": "2025-01-04T23:56:43.255Z",
+        "updated_at": "2025-01-17T10:28:26.289Z"
+      }
+    }
+  ],
+  "Owner.ownerprofile": [
+    {
+      "model": "Owner.ownerprofile",
+      "pk": 1,
+      "fields": {
+        "user": 3,
+        "profile_picture": "",
+        "cpn": "1234567890123",
+        "phone_number": "+40721111111",
+        "created_on": "2025-01-04T23:31:19.596Z",
+        "edited_at": "2025-01-04T23:31:19.596Z",
+        "latitude": null,
+        "longitude": null,
+        "verification_status": "verified",
+        "verification_session_id": ""
+      }
+    },
+    {
+      "model": "Owner.ownerprofile",
+      "pk": 2,
+      "fields": {
+        "user": 4,
+        "profile_picture": "",
+        "cpn": "2234567890123",
+        "phone_number": "+40722222222",
+        "created_on": "2025-01-04T23:31:19.617Z",
+        "edited_at": "2025-01-04T23:31:19.617Z",
+        "latitude": null,
+        "longitude": null,
+        "verification_status": "verified",
+        "verification_session_id": ""
+      }
+    },
+    {
+      "model": "Owner.ownerprofile",
+      "pk": 3,
+      "fields": {
+        "user": 5,
+        "profile_picture": "",
+        "cpn": "3234567890123",
+        "phone_number": "+40723333333",
+        "created_on": "2025-01-04T23:31:19.653Z",
+        "edited_at": "2025-01-04T23:31:19.654Z",
+        "latitude": null,
+        "longitude": null,
+        "verification_status": "verified",
+        "verification_session_id": ""
+      }
+    },
+    {
+      "model": "Owner.ownerprofile",
+      "pk": 4,
+      "fields": {
+        "user": 11,
+        "profile_picture": "",
+        "cpn": "ABC12345",
+        "phone_number": "1234567890",
+        "created_on": "2025-01-14T07:55:09.111Z",
+        "edited_at": "2025-01-14T07:55:09.111Z",
+        "latitude": 40.7128,
+        "longitude": -74.006,
+        "verification_status": "verified",
+        "verification_session_id": "vs_1Qh4wWP0RVzDLoXbRtWzyX9N"
+      }
+    },
+    {
+      "model": "Owner.ownerprofile",
+      "pk": 5,
+      "fields": {
+        "user": 13,
+        "profile_picture": "",
+        "cpn": "345245",
+        "phone_number": "353245",
+        "created_on": "2025-01-16T22:20:19.381Z",
+        "edited_at": "2025-01-16T22:20:19.381Z",
+        "latitude": 0.0,
+        "longitude": 0.0,
+        "verification_status": "verified",
+        "verification_session_id": "vs_1Qi1Q6P0RVzDLoXbfw4QXHmL"
+      }
+    },
+    {
+      "model": "Owner.ownerprofile",
+      "pk": 6,
+      "fields": {
+        "user": 14,
+        "profile_picture": "",
+        "cpn": "2323",
+        "phone_number": "asd",
+        "created_on": "2025-01-17T12:25:47.647Z",
+        "edited_at": "2025-01-17T12:25:47.647Z",
+        "latitude": 0.0,
+        "longitude": 0.0,
+        "verification_status": "verified",
+        "verification_session_id": "vs_1QiEcHP0RVzDLoXbDgt2AZvQ"
+      }
+    }
+  ],
+  "Riderequest.ride_request": [
+    {
+      "model": "Riderequest.ride_request",
+      "pk": 1,
+      "fields": {
+        "Rider": 7,
+        "Owner": 3,
+        "bike": 3,
+        "payment_type": "cash",
+        "pickup_latitude": 45.75484853578074,
+        "pickup_longitude": 21.237634650545115,
+        "destination_latitude": 45.763645,
+        "destination_longitude": 21.253291,
+        "requested_time": "2025-01-17T12:31:11.670Z",
+        "status": "pending",
+        "is_accepted": false,
+        "price": "4.86",
+        "distance": "1.56",
+        "duration": "00:03:07.136298"
+      }
+    }
+  ]
+}

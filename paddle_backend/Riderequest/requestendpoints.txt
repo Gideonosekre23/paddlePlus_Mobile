@@ -1,0 +1,52 @@
+{
+  "endpoints": [
+    {
+      "name": "request_ride",
+      "method": "POST",
+      "url": "/api/rides/request/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {
+        "pickup_latitude": 37.7749,
+        "pickup_longitude": -122.4194,
+        "destination_latitude": 37.7833,
+        "destination_longitude": -122.4167,
+        "payment_type": "card"
+      },
+      "response": {
+        "request_id": 1,
+        "bike": {
+          "id": 3,
+          "name": "Mountain Explorer",
+          "distance": 0.8
+        },
+        "estimated_price": 12.50,
+        "estimated_duration": 0.25
+      }
+    },
+    {
+      "name": "accept_ride_request",
+      "method": "POST",
+      "url": "/api/rides/request/1/accept/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {},
+      "response": {
+        "message": "Ride request accepted",
+        "trip_id": 1,
+        "chat_room_id": 1
+      }
+    },
+    {
+      "name": "decline_ride_request",
+      "method": "POST",
+      "url": "/api/rides/request/1/decline/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {},
+      "response": {
+        "message": "Ride request declined"
+      }
+    }
+  ]
+}
