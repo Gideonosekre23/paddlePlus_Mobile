@@ -1,3 +1,7 @@
+# Database & user uploads
+**/db.sqlite3
+**/media/
+
 # Python
 paddleenv/
 **/__pycache__/
