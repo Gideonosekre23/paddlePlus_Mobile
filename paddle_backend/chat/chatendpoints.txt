@@ -1,0 +1,68 @@
+{
+  "endpoints": [
+    {
+      "name": "get_chat_room",
+      "method": "GET",
+      "url": "/api/chat/room/{trip_id}/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {},
+      "response": {
+        "chat_room_id": 1,
+        "messages": [
+          {
+            "id": 1,
+            "sender": {
+              "id": 2,
+              "username": "bike_owner"
+            },
+            "content": "Your bike unlock code is: 123456\nValid for 5 minutes.",
+            "timestamp": "2023-07-15T14:30:22Z",
+            "is_read": false
+          },
+          {
+            "id": 2,
+            "sender": {
+              "id": 1,
+              "username": "renter"
+            },
+            "content": "Thanks! I'm at the bike now.",
+            "timestamp": "2023-07-15T14:32:10Z",
+            "is_read": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "send_message",
+      "method": "POST",
+      "url": "/api/chat/message/{chat_room_id}/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {
+        "content": "I've arrived at the destination. Where should I park the bike?"
+      },
+      "response": {
+        "id": 3,
+        "sender": {
+          "id": 1,
+          "username": "renter"
+        },
+        "content": "I've arrived at the destination. Where should I park the bike?",
+        "timestamp": "2023-07-15T15:45:30Z",
+        "is_read": false
+      }
+    },
+    {
+      "name": "mark_messages_read",
+      "method": "PUT",
+      "url": "/api/chat/room/{chat_room_id}/read/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {},
+      "response": {
+        "status": "messages marked as read"
+      }
+    }
+  ]
+}

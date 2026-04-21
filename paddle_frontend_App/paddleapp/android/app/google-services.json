@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "403509008164",
+    "project_id": "paddleplus-459622",
+    "storage_bucket": "paddleplus-459622.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:403509008164:android:09f62bf60c5d6d813885b1",
+        "android_client_info": {
+          "package_name": "com.example.paddleapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "403509008164-6c3pg7u5lieophreupag2g0kd3js3349.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.paddleapp",
+            "certificate_hash": "200dec7482b80ed086f8873c596115ad6cc59447"
+          }
+        },
+        {
+          "client_id": "403509008164-35h302qir4dlmojkd0m8p992ioi1vl2h.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA7fJm3uRLfwiqdVDGHvFGdzAWbuuE0GI8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "403509008164-35h302qir4dlmojkd0m8p992ioi1vl2h.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

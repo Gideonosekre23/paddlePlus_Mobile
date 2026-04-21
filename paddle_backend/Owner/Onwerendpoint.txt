@@ -1,0 +1,185 @@
+{
+  "endpoints": [
+    {
+      "name": "customer_list",
+      "method": "GET",
+      "url": "/api/owners/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {},
+      "response": [
+        {
+          "id": 1,
+          "user": {
+            "id": 1,
+            "username": "bikeowner1",
+            "email": "owner1@example.com"
+          },
+          "phone_number": "+12025550123",
+          "cpn": "ABC123456",
+          "latitude": 37.7749,
+          "longitude": -122.4194,
+          "profile_picture": "https://example.com/profiles/owner1.jpg",
+          "verification_status": "verified"
+        },
+        {
+          "id": 2,
+          "user": {
+            "id": 2,
+            "username": "bikeowner2",
+            "email": "owner2@example.com"
+          },
+          "phone_number": "+12025550124",
+          "cpn": "DEF789012",
+          "latitude": 37.7833,
+          "longitude": -122.4167,
+          "profile_picture": "https://example.com/profiles/owner2.jpg",
+          "verification_status": "verified"
+        }
+      ]
+    },
+    {
+      "name": "register_Owner",
+      "method": "POST",
+      "url": "/api/owners/register/",
+      "authentication": "None",
+      "permissions": "AllowAny",
+      "request_phase1": {
+        "username": "newbikeowner",
+        "email": "newowner@example.com",
+        "password": "securepassword123"
+      },
+      "response_phase1": {
+        "message": "Basic info validated. Proceed to next step.",
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6Im5ld2Jpa2Vvd25lciIsImVtYWlsIjoibmV3b3duZXJAZXhhbXBsZS5jb20iLCJwYXNzd29yZCI6InNlY3VyZXBhc3N3b3JkMTIzIiwiaXNfc29jaWFsIjpmYWxzZSwiZXhwIjoxNjI2MzY0NTAwfQ.example_token_signature"
+      },
+      "request_phase2": {
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6Im5ld2Jpa2Vvd25lciIsImVtYWlsIjoibmV3b3duZXJAZXhhbXBsZS5jb20iLCJwYXNzd29yZCI6InNlY3VyZXBhc3N3b3JkMTIzIiwiaXNfc29jaWFsIjpmYWxzZSwiZXhwIjoxNjI2MzY0NTAwfQ.example_token_signature",
+        "cpn": "GHI345678",
+        "phone_number": "+12025550125",
+        "latitude": 37.7695,
+        "longitude": -122.4268,
+        "profile_picture": "https://example.com/profiles/newowner.jpg"
+      },
+      "response_phase2": {
+        "message": "Please complete verification",
+        "verification_url": "https://verify.stripe.com/start/test_verification_session",
+        "session_id": "vs_123456789",
+        "websocket_url": "ws://127.0.0.1:8000/ws/owner/verification/vs_123456789/"
+      }
+    },
+    {
+      "name": "Login_Owner",
+      "method": "POST",
+      "url": "/api/owners/login/",
+      "authentication": "None",
+      "permissions": "AllowAny",
+      "request_traditional": {
+        "username": "bikeowner1",
+        "password": "securepassword123"
+      },
+      "request_social": {
+        "provider": "google",
+        "token": "google_oauth_token_123456"
+      },
+      "response": {
+        "user": {
+          "username": "bikeowner1",
+          "email": "owner1@example.com",
+          "phone_number": "+12025550123",
+          "profile_picture": "https://example.com/profiles/owner1.jpg",
+          "verification_status": "verified",
+          "access": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjI2MzY0NTAwLCJpYXQiOjE2MjYzNjA5MDAsImp0aSI6ImV4YW1wbGVfand0X2lkIiwidXNlcl9pZCI6MX0.example_access_token",
+          "refresh": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTYyNjQ0NzMwMCwiaWF0IjoxNjI2MzYwOTAwLCJqdGkiOiJleGFtcGxlX2p3dF9yZWZyZXNoX2lkIiwidXNlcl9pZCI6MX0.example_refresh_token",
+          "notification_channel": "user_1_eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjI2MzY0NTAwLCJpYXQiOjE2MjYzNjA5MDAsImp0aSI6ImV4YW1wbGVfand0X2lkIiwidXNlcl9pZCI6MX0.example_access_token",
+          "ws_url": "/ws/notifications/user_1_eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjI2MzY0NTAwLCJpYXQiOjE2MjYzNjA5MDAsImp0aSI6ImV4YW1wbGVfand0X2lkIiwidXNlcl9pZCI6MX0.example_access_token/"
+        }
+      }
+    },
+    {
+      "name": "Logout_Owner",
+      "method": "POST",
+      "url": "/api/owners/logout/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {
+        "refresh": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTYyNjQ0NzMwMCwiaWF0IjoxNjI2MzYwOTAwLCJqdGkiOiJleGFtcGxlX2p3dF9yZWZyZXNoX2lkIiwidXNlcl9pZCI6MX0.example_refresh_token"
+      },
+      "response": {
+        "message": "Successfully logged out"
+      }
+    },
+    {
+      "name": "update_Owner_profile",
+      "method": "PUT",
+      "url": "/api/owners/profile/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {
+        "phone_number": "+12025550126",
+        "latitude": 37.7695,
+        "longitude": -122.4268,
+        "profile_picture": "https://example.com/profiles/updated_owner1.jpg"
+      },
+      "response": {
+        "message": "Profile updated successfully"
+      }
+    },
+    {
+      "name": "delete_Owner_profile",
+      "method": "DELETE",
+      "url": "/api/owners/profile/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {},
+      "response": {
+        "message": "Profile deleted successfully"
+      }
+    },
+    {
+      "name": "search_Owner_profile",
+      "method": "GET",
+      "url": "/api/owners/search/{username}/",
+      "authentication": "JWT",
+      "permissions": "IsAuthenticated",
+      "request": {},
+      "response": {
+        "id": 1,
+        "user": {
+          "id": 1,
+          "username": "bikeowner1",
+          "email": "owner1@example.com"
+        },
+        "phone_number": "+12025550123",
+        "cpn": "ABC123456",
+        "latitude": 37.7749,
+        "longitude": -122.4194,
+        "profile_picture": "https://example.com/profiles/owner1.jpg",
+        "verification_status": "verified"
+      }
+    },
+    {
+      "name": "stripe_webhook",
+      "method": "POST",
+      "url": "/webhook/stripe/owner/",
+      "authentication": "None",
+      "permissions": "None",
+      "request": {
+        "Stripe-Signature": "t=1626360900,v1=example_signature",
+        "body": {
+          "id": "evt_123456789",
+          "type": "identity.verification_session.verified",
+          "data": {
+            "object": {
+              "id": "vs_123456789",
+              "status": "verified"
+            }
+          }
+        }
+      },
+      "response": {
+        "status": 200
+      }
+    }
+  ]
+}
