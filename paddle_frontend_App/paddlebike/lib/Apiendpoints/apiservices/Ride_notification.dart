@@ -238,7 +238,9 @@ class GlobalNotificationOverlay {
                 child: Column(
                   children: [
                     Text(
-                      'Your Earnings: ${data['your_earnings'] ?? 'N/A'}',
+                      data['your_earnings'] != null
+                          ? 'Your Earnings: ${data['your_earnings']}'
+                          : 'Ride Price: \$${data['price'] ?? 'N/A'}',
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -253,14 +255,15 @@ class GlobalNotificationOverlay {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                '💳 Payment Already Completed!',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.green,
-                  fontWeight: FontWeight.w500,
+              if (data['payment_completed'] == true)
+                const Text(
+                  '💳 Payment Already Completed!',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.green,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
               const SizedBox(height: 16),
 
               // ✅ Show expire time
@@ -331,7 +334,7 @@ class GlobalNotificationOverlay {
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
-                    'Request ID: ${tempRequestId.substring(0, 8)}...',
+                    'Request ID: ${tempRequestId.length > 8 ? tempRequestId.substring(0, 8) : tempRequestId}...',
                     style: const TextStyle(fontSize: 10, color: Colors.grey),
                   ),
                 ),

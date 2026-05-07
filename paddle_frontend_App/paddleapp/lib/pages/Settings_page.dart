@@ -5,6 +5,9 @@ import 'package:paddleapp/Apiendpoints/models/api_response.dart';
 import 'package:paddleapp/pages/register_page.dart';
 import 'package:reactive_theme/reactive_theme.dart';
 import 'package:paddleapp/pages/EditProfilePage.dart';
+import 'package:paddleapp/pages/payment_setup_page.dart';
+import 'package:paddleapp/pages/change_password_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class Settings_Page extends StatefulWidget {
   const Settings_Page({super.key});
@@ -16,6 +19,31 @@ class Settings_Page extends StatefulWidget {
 class _SettingsPageState extends State<Settings_Page> {
   bool notificationsEnabled = true;
   String distanceUnit = 'Kilometers';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
+      distanceUnit = prefs.getString('distance_unit') ?? 'Kilometers';
+    });
+  }
+
+  Future<void> _saveNotifications(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('notifications_enabled', value);
+  }
+
+  Future<void> _saveDistanceUnit(String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('distance_unit', value);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,19 +93,10 @@ class _SettingsPageState extends State<Settings_Page> {
                       title: const Text("Change Password"),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () {
-                        showDialog(
-                          context: context,
-                          builder: (_) => AlertDialog(
-                            title: const Text('Change Password'),
-                            content: const Text(
-                              'Password change is coming soon. Please contact support if you need immediate assistance.',
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('OK'),
-                              ),
-                            ],
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ChangePasswordPage(),
                           ),
                         );
                       },
@@ -111,6 +130,7 @@ class _SettingsPageState extends State<Settings_Page> {
                         setState(() {
                           notificationsEnabled = value;
                         });
+                        _saveNotifications(value);
                       },
                     ),
                     const Divider(height: 1),
@@ -169,10 +189,16 @@ class _SettingsPageState extends State<Settings_Page> {
                     ),
                     const Divider(height: 1),
                     ListTile(
+                      leading: const Icon(Icons.payment),
                       title: const Text("Payment Methods"),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () {
-                        // todo payment methods
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const PaymentSetupPage(),
+                          ),
+                        );
                       },
                     ),
                   ],
@@ -199,7 +225,30 @@ class _SettingsPageState extends State<Settings_Page> {
                       title: const Text("Help Center"),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () {
-                        // Navigate to help center
+                        showDialog(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            title: const Text('Help Center'),
+                            content: const SingleChildScrollView(
+                              child: Text(
+                                'Need help? Here\'s how to reach us:\n\n'
+                                '📧 Email: support@paddleplus.app\n\n'
+                                'Common issues:\n'
+                                '• Bike not unlocking: Check the unlock code in the chat\n'
+                                '• Payment issues: Contact us with your trip ID\n'
+                                '• App problems: Restart the app and try again\n'
+                                '• Forgot password: Use the "Forgot Password" link on the login screen\n\n'
+                                'Our team responds within 24 hours.',
+                              ),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Close'),
+                              ),
+                            ],
+                          ),
+                        );
                       },
                     ),
                     const Divider(height: 1),
@@ -208,7 +257,36 @@ class _SettingsPageState extends State<Settings_Page> {
                       title: const Text("Terms of Service"),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () {
-                        // Show terms of service
+                        showDialog(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            title: const Text('Terms of Service'),
+                            content: const SingleChildScrollView(
+                              child: Text(
+                                'PaddlePlus Terms of Service\n\n'
+                                '1. Acceptance of Terms\n'
+                                'By using PaddlePlus, you agree to these terms.\n\n'
+                                '2. Use of Service\n'
+                                'You must be 18+ with a valid ID and payment method to rent bikes.\n\n'
+                                '3. Payments\n'
+                                'Your card is charged at the end of each trip based on actual distance and time.\n\n'
+                                '4. Safety\n'
+                                'You agree to follow all local traffic laws and wear appropriate safety gear.\n\n'
+                                '5. Liability\n'
+                                'PaddlePlus is not liable for accidents or damages during a rental.\n\n'
+                                '6. Account\n'
+                                'Keep your login credentials secure. You are responsible for all activity on your account.\n\n'
+                                'For the full terms, contact support@paddleplus.app.',
+                              ),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Close'),
+                              ),
+                            ],
+                          ),
+                        );
                       },
                     ),
                     const Divider(height: 1),
@@ -217,7 +295,34 @@ class _SettingsPageState extends State<Settings_Page> {
                       title: const Text("Privacy Policy"),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () {
-                        // Show privacy policy
+                        showDialog(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            title: const Text('Privacy Policy'),
+                            content: const SingleChildScrollView(
+                              child: Text(
+                                'PaddlePlus Privacy Policy\n\n'
+                                '1. Data We Collect\n'
+                                'We collect your name, email, phone number, location, and payment information to operate the service.\n\n'
+                                '2. How We Use It\n'
+                                'Your data is used to process rides, handle payments, and improve the app. We never sell your data.\n\n'
+                                '3. Location\n'
+                                'Location data is used during active rides only and is not stored long-term.\n\n'
+                                '4. Payments\n'
+                                'Payment information is stored securely by Stripe. PaddlePlus never stores your raw card details.\n\n'
+                                '5. Your Rights\n'
+                                'You can request deletion of your account and data at any time from Account Settings.\n\n'
+                                'For questions, contact support@paddleplus.app.',
+                              ),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Close'),
+                              ),
+                            ],
+                          ),
+                        );
                       },
                     ),
                     const Divider(height: 1),
@@ -227,7 +332,23 @@ class _SettingsPageState extends State<Settings_Page> {
                       subtitle: const Text("Version 1.0.0"),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () {
-                        // Show about dialog
+                        showAboutDialog(
+                          context: context,
+                          applicationName: 'PaddlePlus',
+                          applicationVersion: '1.0.0',
+                          applicationIcon: const Icon(
+                            Icons.directions_bike,
+                            size: 48,
+                            color: Color(0xFF76ACC6),
+                          ),
+                          applicationLegalese: '© 2025 PaddlePlus. All rights reserved.',
+                          children: const [
+                            SizedBox(height: 12),
+                            Text(
+                              'PaddlePlus connects riders with bike owners for convenient, affordable bike sharing.',
+                            ),
+                          ],
+                        );
                       },
                     ),
                   ],
@@ -294,6 +415,7 @@ class _SettingsPageState extends State<Settings_Page> {
                     setState(() {
                       distanceUnit = 'Kilometers';
                     });
+                    _saveDistanceUnit('Kilometers');
                     Navigator.pop(context);
                   },
                 ),
@@ -304,6 +426,7 @@ class _SettingsPageState extends State<Settings_Page> {
                     setState(() {
                       distanceUnit = 'Miles';
                     });
+                    _saveDistanceUnit('Miles');
                     Navigator.pop(context);
                   },
                 ),

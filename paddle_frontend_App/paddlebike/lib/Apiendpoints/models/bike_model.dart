@@ -74,10 +74,10 @@ class Bike {
           ? HardwareStatus.fromJson(json['hardware_info'])
           : null,
       createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'])
+          ? DateTime.tryParse(json['created_at'])
           : null,
       updatedAt: json['updated_at'] != null
-          ? DateTime.parse(json['updated_at'])
+          ? DateTime.tryParse(json['updated_at'])
           : null,
     );
   }
@@ -164,10 +164,10 @@ class HardwareStatus {
       signalStrength: json['signal_strength'],
       firmwareVersion: json['firmware_version'],
       lastPing: json['last_ping'] != null
-          ? DateTime.parse(json['last_ping'])
+          ? DateTime.tryParse(json['last_ping'])
           : null,
       assignedAt: json['assigned_at'] != null
-          ? DateTime.parse(json['assigned_at'])
+          ? DateTime.tryParse(json['assigned_at'])
           : null,
     );
   }
@@ -233,11 +233,15 @@ class AddBikeRequest {
 
 class ActivateBikeRequest {
   final String serialNumber;
+  final String factoryKey;
 
-  ActivateBikeRequest({required this.serialNumber});
+  ActivateBikeRequest({required this.serialNumber, required this.factoryKey});
 
   Map<String, dynamic> toJson() {
-    return {'serial_number': serialNumber};
+    return {
+      'serial_number': serialNumber,
+      'factory_key': factoryKey,
+    };
   }
 }
 
@@ -323,7 +327,7 @@ class ActivateBikeResponse {
       message: json['message'],
       hardwareStatus: HardwareStatus.fromJson(json['hardware_status']),
       bikeId: json['bike_id'] ?? 0,
-      isNowActive: true,
+      isNowActive: json['is_now_active'] ?? true,
     );
   }
 }

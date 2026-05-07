@@ -150,9 +150,12 @@ class AuthApiService {
     });
   }
 
+  // Returns LoginResponse on success; throws SocialRegistrationNeeded if
+  // the server signals the user has no account yet.
   static Future<ApiResponse<LoginResponse>> socialLogin(
-    Map<String, dynamic> socialRequest,
-  ) async {
+    Map<String, dynamic> socialRequest, {
+    void Function(SocialRegistrationNeeded)? onNeedsRegistration,
+  }) async {
     final response = await BaseApiService.post<Map<String, dynamic>>(
       '/rider/login/',
       body: socialRequest,
@@ -160,8 +163,15 @@ class AuthApiService {
     );
 
     if (response.success && response.data != null) {
+      final data = response.data!;
+      // Backend signals new user — not an error, just a redirect
+      if (data['needs_registration'] == true) {
+        final reg = SocialRegistrationNeeded.fromJson(data);
+        onNeedsRegistration?.call(reg);
+        return ApiResponse.error('needs_registration');
+      }
       try {
-        final loginResp = LoginResponse.fromJson(response.data!);
+        final loginResp = LoginResponse.fromJson(data);
         return ApiResponse.success(loginResp);
       } catch (e) {
         return ApiResponse.error('Parsing error: $e');
@@ -182,4 +192,141 @@ class AuthApiService {
       );
     });
   }
+
+  static Future<ApiResponse<Map<String, dynamic>>> setupPaymentMethod() async {
+    return BaseApiService.requestWithRetry(() async {
+      return BaseApiService.post<Map<String, dynamic>>(
+        '/rider/payment/setup/',
+        fromJson: (json) => json,
+        auth: true,
+      );
+    });
+  }
+
+  static Future<ApiResponse<Map<String, dynamic>>> confirmPaymentMethod({
+    String? paymentMethodId,
+    String? setupIntentClientSecret,
+  }) async {
+    return BaseApiService.requestWithRetry(() async {
+      return BaseApiService.post<Map<String, dynamic>>(
+        '/rider/payment/confirm/',
+        body: {
+          if (paymentMethodId != null) 'payment_method_id': paymentMethodId,
+          if (setupIntentClientSecret != null)
+            'setup_intent_client_secret': setupIntentClientSecret,
+        },
+        fromJson: (json) => json,
+        auth: true,
+      );
+    });
+  }
+
+  static Future<ApiResponse<MessageResponse>> forgotPassword(String email) =>
+      BaseApiService.post(
+        '/rider/password/forgot/',
+        body: {'email': email},
+        fromJson: MessageResponse.fromJson,
+        auth: false,
+      );
+
+  static Future<ApiResponse<ResetTokenResponse>> verifyResetOtp(
+    String email,
+    String otp,
+  ) =>
+      BaseApiService.post(
+        '/rider/password/verify-otp/',
+        body: {'email': email, 'otp': otp},
+        fromJson: ResetTokenResponse.fromJson,
+        auth: false,
+      );
+
+  static Future<ApiResponse<MessageResponse>> resetPassword(
+    String resetToken,
+    String newPassword,
+  ) =>
+      BaseApiService.post(
+        '/rider/password/reset/',
+        body: {'reset_token': resetToken, 'new_password': newPassword},
+        fromJson: MessageResponse.fromJson,
+        auth: false,
+      );
+
+  static Future<ApiResponse<MessageResponse>> changePassword(
+    String oldPassword,
+    String newPassword,
+  ) =>
+      BaseApiService.requestWithRetry(
+        () => BaseApiService.post(
+          '/rider/password/change/',
+          body: {'old_password': oldPassword, 'new_password': newPassword},
+          fromJson: MessageResponse.fromJson,
+          auth: true,
+        ),
+      );
+
+  static Future<ApiResponse<Map<String, dynamic>>> listPaymentMethods() =>
+      BaseApiService.requestWithRetry(
+        () => BaseApiService.get<Map<String, dynamic>>(
+          '/rider/payment/methods/',
+          fromJson: (json) => json as Map<String, dynamic>,
+          auth: true,
+        ),
+      );
+
+  static Future<ApiResponse<MessageResponse>> deletePaymentMethod(
+          String pmId) =>
+      BaseApiService.requestWithRetry(
+        () => BaseApiService.delete<MessageResponse>(
+          '/rider/payment/method/$pmId/delete/',
+          fromJson: MessageResponse.fromJson,
+          auth: true,
+        ),
+      );
+
+  /// Upload a new profile picture for the rider.
+  /// [imagePath] is the absolute path to the local image file.
+  static Future<ApiResponse<MessageResponse>> updateProfilePicture(
+    String imagePath,
+  ) =>
+      BaseApiService.requestWithRetry(
+        () => BaseApiService.patchMultipart<MessageResponse>(
+          '/rider/profile/update/',
+          fields: const {},
+          filePaths: {'profile_picture': imagePath},
+          fromJson: MessageResponse.fromJson,
+          auth: true,
+        ),
+      );
+
+  /// Fetch the rider's notification history.
+  static Future<ApiResponse<Map<String, dynamic>>> getNotificationHistory({
+    int limit = 50,
+    int offset = 0,
+    bool unreadOnly = false,
+  }) =>
+      BaseApiService.requestWithRetry(
+        () => BaseApiService.get<Map<String, dynamic>>(
+          '/notifications/',
+          params: {
+            'limit': '$limit',
+            'offset': '$offset',
+            if (unreadOnly) 'unread': 'true',
+          },
+          fromJson: (json) => json,
+          auth: true,
+        ),
+      );
+
+  /// Mark notifications as read. Pass [ids] to mark specific ones, or omit to mark all.
+  static Future<ApiResponse<Map<String, dynamic>>> markNotificationsRead({
+    List<int>? ids,
+  }) =>
+      BaseApiService.requestWithRetry(
+        () => BaseApiService.post<Map<String, dynamic>>(
+          '/notifications/mark-read/',
+          body: ids != null ? {'ids': ids} : {},
+          fromJson: (json) => json,
+          auth: true,
+        ),
+      );
 }

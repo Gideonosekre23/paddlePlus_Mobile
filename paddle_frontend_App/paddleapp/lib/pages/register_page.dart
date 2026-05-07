@@ -7,6 +7,7 @@ import 'package:paddleapp/pages/register2_page.dart';
 import '../Apiendpoints/apiservices/auth_api_service.dart';
 import '../Apiendpoints/models/auth_models.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 final GoogleSignIn _googleSignIn = GoogleSignIn();
 
@@ -136,13 +137,10 @@ class _RegisterPageState extends State<RegisterPage> {
 
   void _socialSignUp(String provider) {
     if (!mounted) return;
-
     if (provider == 'google') {
       _handleGoogleSignUp();
-    } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('$provider sign up coming soon!')));
+    } else if (provider == 'apple') {
+      _handleAppleSignUp();
     }
   }
 
@@ -150,20 +148,28 @@ class _RegisterPageState extends State<RegisterPage> {
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) return;
-
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
-
-      if (googleAuth.idToken == null) {
-        throw Exception('Failed to get Google ID token');
-      }
-
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      if (googleAuth.idToken == null) throw Exception('Failed to get Google ID token');
       await _registerWithSocialToken('google', googleAuth.idToken!);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Google sign up failed: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Google sign up failed: $e')));
+    }
+  }
+
+  Future<void> _handleAppleSignUp() async {
+    try {
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [AppleIDAuthorizationScopes.email, AppleIDAuthorizationScopes.fullName],
+      );
+      final idToken = credential.identityToken;
+      if (idToken == null) throw Exception('Failed to get Apple identity token');
+      await _registerWithSocialToken('apple', idToken);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Apple sign up failed: $e')));
     }
   }
 

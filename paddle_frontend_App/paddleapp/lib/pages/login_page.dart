@@ -3,12 +3,16 @@ import 'package:paddleapp/constants/button.dart';
 import 'package:paddleapp/constants/buttonimage.dart';
 import 'package:paddleapp/constants/tesxtfileds.dart';
 import 'package:paddleapp/pages/register_page.dart';
+import 'package:paddleapp/pages/register2_page.dart';
 import 'package:paddleapp/constants/Navbar.dart';
 import 'package:paddleapp/Apiendpoints/apiservices/auth_api_service.dart';
 import 'package:paddleapp/Apiendpoints/apiservices/user_session_manager.dart';
 import 'package:paddleapp/Apiendpoints/models/auth_models.dart';
 import 'package:paddleapp/Apiendpoints/models/api_response.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:paddleapp/pages/forgot_password_page.dart';
+import 'package:paddleapp/Apiendpoints/models/auth_models.dart' show SocialRegistrationNeeded;
 
 final GoogleSignIn _googleSignIn = GoogleSignIn();
 
@@ -165,19 +169,10 @@ class _login_pageState extends State<login_page> {
                     children: [
                       TextButton(
                         onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (_) => AlertDialog(
-                              title: const Text('Forgot Password'),
-                              content: const Text(
-                                'Password reset is coming soon. Please contact support if you need immediate assistance.',
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text('OK'),
-                                ),
-                              ],
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const ForgotPasswordPage(),
                             ),
                           );
                         },
@@ -315,18 +310,12 @@ class _login_pageState extends State<login_page> {
             );
           }
         } else {
-          _showWarningMessage(
-            "Login successful, but account verification is pending. Please complete verification.",
+          // Verification is required before accessing the app. Clear the session
+          // so the user must re-register or contact support.
+          await _sessionManager.logout(notifyApi: false);
+          _showErrorMessage(
+            "Your account is not yet verified. Please complete registration and identity verification first.",
           );
-          if (mounted) {
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(
-                builder: (context) => Navbar(user: response.data!.user),
-              ),
-              (route) => false,
-            );
-          }
         }
       } else {
         _showErrorMessage(response.error ?? "Login failed. Please try again.");
@@ -343,7 +332,6 @@ class _login_pageState extends State<login_page> {
     }
   }
 
-  // This method remains a placeholder for social login
   Future<void> externalLogin(String provider) async {
     if (mounted) {
       setState(() {
@@ -354,8 +342,8 @@ class _login_pageState extends State<login_page> {
     try {
       if (provider == 'google') {
         await _handleGoogleSignIn();
-      } else {
-        _showInfoMessage("$provider login coming soon!");
+      } else if (provider == 'apple') {
+        await _handleAppleSignIn();
       }
     } catch (e) {
       _showErrorMessage("Social login failed. Please try again.");
@@ -394,29 +382,69 @@ class _login_pageState extends State<login_page> {
     }
   }
 
+  Future<void> _handleAppleSignIn() async {
+    try {
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+
+      final idToken = credential.identityToken;
+      if (idToken == null) {
+        throw Exception('Failed to get Apple identity token');
+      }
+
+      await _loginWithSocialToken('apple', idToken);
+    } catch (e) {
+      debugPrint('Apple Sign In Error: $e');
+      rethrow;
+    }
+  }
+
   Future<void> _loginWithSocialToken(String provider, String token) async {
     try {
-      // Create social login request
       final socialLoginRequest = {
         'provider': provider,
         'provider_token': token,
       };
 
       debugPrint('🔄 Attempting social login with $provider');
-      debugPrint('🔍 Request payload: $socialLoginRequest'); // ✅ Add this
 
-      final ApiResponse<LoginResponse> response =
-          await AuthApiService.socialLogin(socialLoginRequest);
+      SocialRegistrationNeeded? needsReg;
 
-      debugPrint('🔍 Response success: ${response.success}'); // ✅ Add this
-      debugPrint('🔍 Response data: ${response.data}'); // ✅ Add this
-      debugPrint('🔍 Response error: ${response.error}'); // ✅ Add this
+      final ApiResponse<LoginResponse> response = await AuthApiService.socialLogin(
+        socialLoginRequest,
+        onNeedsRegistration: (reg) => needsReg = reg,
+      );
+
+      // New user — go straight to Register2Page (skip email/password form)
+      if (needsReg != null) {
+        debugPrint('👤 New social user — redirecting to registration');
+        if (mounted) {
+          _showInfoMessage(
+            'No account found. Please complete your profile to sign up with ${provider[0].toUpperCase()}${provider.substring(1)}.',
+          );
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => Register2Page(
+                registrationToken: needsReg!.registrationToken,
+                prefillEmail: needsReg!.email,
+              ),
+            ),
+          );
+        }
+        return;
+      }
 
       if (response.success && response.data != null) {
         debugPrint('✅ Social login successful');
         await _sessionManager.completeLogin(response.data!);
-        _showSuccessMessage("Welcome! Signed in with Google.");
-
+        _showSuccessMessage(
+          "Welcome! Signed in with ${provider[0].toUpperCase()}${provider.substring(1)}.",
+        );
         if (mounted) {
           Navigator.pushAndRemoveUntil(
             context,
@@ -427,16 +455,11 @@ class _login_pageState extends State<login_page> {
           );
         }
       } else {
-        debugPrint(
-          '❌ Social login failed - showing response error',
-        ); // ✅ Add this
         _showErrorMessage(response.error ?? "Social login failed.");
       }
     } catch (e) {
-      debugPrint('❌ Social login exception: $e'); // ✅ Improved logging
-      _showErrorMessage(
-        "An error occurred during social login: $e",
-      ); // ✅ Show actual error
+      debugPrint('❌ Social login exception: $e');
+      _showErrorMessage("An error occurred during social login: $e");
     }
   }
 

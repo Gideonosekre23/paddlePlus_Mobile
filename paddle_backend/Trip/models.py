@@ -1,11 +1,12 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.conf import settings
 from Rider.models import UserProfile
 from Owner.models import OwnerProfile
 from Bikes.models import Bikes
 from decimal import Decimal
 import pyotp
-from datetime import datetime
+from django.utils import timezone
 
 class Trip(models.Model):
     STATUS_CHOICES = [
@@ -24,7 +25,9 @@ class Trip(models.Model):
         ('failed', 'Failed')
     ]
 
-    COMMISSION_RATE = Decimal('0.15')  # 15% platform commission
+    @property
+    def COMMISSION_RATE(self):
+        return Decimal(str(getattr(settings, 'PLATFORM_COMMISSION_RATE', '0.15')))
 
     renter = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='trips_taken')
     bike_owner = models.ForeignKey(OwnerProfile, on_delete=models.CASCADE, related_name='trips_given')
@@ -64,26 +67,45 @@ class Trip(models.Model):
     )
     payment_processed_at = models.DateTimeField(null=True, blank=True)
     
+    # Payment intent tracking for two-stage payment
+    payment_intent_id = models.CharField(max_length=100, blank=True, default='')
+
+    # Address fields (populated from Ride_Request on trip creation)
+    origin_address = models.CharField(max_length=255, null=True, blank=True)
+    destination_address = models.CharField(max_length=255, null=True, blank=True)
+
+    # Stripe transfer record
+    stripe_transfer_id = models.CharField(max_length=255, null=True, blank=True)
+
+    # Rider rating and review (set when rider rates the trip)
+    rider_rating = models.PositiveSmallIntegerField(null=True, blank=True)
+    rider_review = models.TextField(null=True, blank=True)
+
+    # Owner rating and review
+    owner_rating = models.PositiveSmallIntegerField(null=True, blank=True)
+    owner_review = models.TextField(null=True, blank=True)
+
+    # Rating guard — prevents a rider from rating the same trip twice
+    is_rated = models.BooleanField(default=False)
+
     # Unlock code fields
     unlock_code = models.CharField(max_length=6, blank=True)
     code_generated_at = models.DateTimeField(null=True)
 
-    def process_unlock_status(self, is_unlocked):
-        chat_room = ChatRoom.objects.get(trip=self)
-        if is_unlocked:
-            Message.objects.create(
-                chat_room=chat_room,
-                content="🔓 Bike has been unlocked successfully!"
-            )
-        else:
-            Message.objects.create(
-                chat_room=chat_room,
-                content="🔒 Bike has been locked"
-            )
+    def process_unlock_status(self, is_unlocked, sender=None):
+        from chat.models import ChatRoom, Message
+        try:
+            chat_room = ChatRoom.objects.get(trip=self)
+        except ChatRoom.DoesNotExist:
+            return
+        message_sender = sender or self.bike_owner.user
+        content = "🔓 Bike has been unlocked successfully!" if is_unlocked else "🔒 Bike has been locked"
+        Message.objects.create(chat_room=chat_room, sender=message_sender, content=content)
 
     
     def calculate_commission(self):
-    
+        if self.price is None:
+            return
         self.commission_amount = self.price * self.COMMISSION_RATE
         self.owner_payout = self.price - self.commission_amount
         self.save()
@@ -94,7 +116,7 @@ class Trip(models.Model):
             self.payment_status = 'processing'
             self.calculate_commission()
             self.payment_status = 'completed'
-            self.payment_processed_at = datetime.now()
+            self.payment_processed_at = timezone.now()
             self.save()
             return True
         except Exception as e:
@@ -108,7 +130,7 @@ class Trip(models.Model):
             raise ValueError("Trip must be 'ontrip' to complete")
         
         self.status = 'completed'
-        self.end_time = datetime.now()
+        self.end_time = timezone.now()
         self.process_payment()
         self.save()
 

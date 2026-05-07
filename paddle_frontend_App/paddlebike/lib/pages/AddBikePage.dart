@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:location/location.dart' as location_service;
 import 'package:geocoding/geocoding.dart';
-import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:paddlebike/Apiendpoints/apiservices/bike_api_service.dart';
 import 'package:paddlebike/Apiendpoints/models/bike_model.dart';
 import 'package:paddlebike/Apiendpoints/models/api_response.dart';
@@ -33,7 +33,7 @@ class _AddBikePageState extends State<AddBikePage> {
   bool _isGettingLocation = false;
 
   // Image and location data
-  File? _selectedImage;
+  Uint8List? _selectedImageBytes;
   String? _base64Image;
   double? _latitude;
   double? _longitude;
@@ -317,13 +317,13 @@ class _AddBikePageState extends State<AddBikePage> {
             borderRadius: BorderRadius.circular(12),
             color: Colors.grey.shade50,
           ),
-          child: _selectedImage != null
+          child: _selectedImageBytes != null
               ? Stack(
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: Image.file(
-                        _selectedImage!,
+                      child: Image.memory(
+                        _selectedImageBytes!,
                         height: 200,
                         width: double.infinity,
                         fit: BoxFit.cover,
@@ -335,7 +335,7 @@ class _AddBikePageState extends State<AddBikePage> {
                       child: GestureDetector(
                         onTap: () {
                           setState(() {
-                            _selectedImage = null;
+                            _selectedImageBytes = null;
                             _base64Image = null;
                           });
                         },
@@ -626,18 +626,15 @@ class _AddBikePageState extends State<AddBikePage> {
       );
 
       if (image != null) {
-        print("📷 Image picked: ${image.path}");
+        final bytes = await image.readAsBytes();
+        if (bytes.length > 5 * 1024 * 1024) {
+          _showErrorMessage("Image is too large. Please choose a photo under 5 MB.");
+          return;
+        }
         setState(() {
-          _selectedImage = File(image.path);
-        });
-
-        // Convert to base64 for API
-        final bytes = await File(image.path).readAsBytes();
-        setState(() {
+          _selectedImageBytes = bytes;
           _base64Image = base64Encode(bytes);
         });
-
-        print("📷 Base64 length: ${_base64Image?.length}");
         _showSuccessMessage("Bike image selected!");
       }
     } catch (e) {
@@ -743,9 +740,11 @@ class _AddBikePageState extends State<AddBikePage> {
       print("❌ Error getting location: $e");
       _showErrorMessage('Error getting location: ${e.toString()}');
     } finally {
-      setState(() {
-        _isGettingLocation = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isGettingLocation = false;
+        });
+      }
     }
   }
 
@@ -756,7 +755,7 @@ class _AddBikePageState extends State<AddBikePage> {
       return;
     }
 
-    if (_selectedImage == null || _base64Image == null) {
+    if (_selectedImageBytes == null || _base64Image == null) {
       _showErrorMessage('Please add a bike image');
       return;
     }
@@ -772,13 +771,19 @@ class _AddBikePageState extends State<AddBikePage> {
 
     try {
       // Create AddBikeRequest
+      final int? parsedYear = int.tryParse(_yearController.text.trim());
+      if (parsedYear == null) {
+        _showErrorMessage('Please enter a valid year');
+        setState(() => _isLoading = false);
+        return;
+      }
       final addBikeRequest = AddBikeRequest(
         bikeName: _bikeNameController.text.trim(),
         brand: _brandController.text.trim(),
         model: _modelController.text.trim(),
         color: _colorController.text.trim(),
         size: _selectedSize,
-        year: int.parse(_yearController.text.trim()),
+        year: parsedYear,
         latitude: _latitude!,
         longitude: _longitude!,
         bikeAddress: _addressController.text.trim(),

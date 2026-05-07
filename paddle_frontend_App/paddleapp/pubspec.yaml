@@ -67,6 +67,8 @@ dependencies:
   google_sign_in_ios: ^5.9.0
   google_sign_in_android: ^6.2.1
   cached_network_image: ^3.4.1
+  flutter_stripe: ^11.4.0
+  sign_in_with_apple: ^6.0.0
 
 dev_dependencies:
   flutter_test:

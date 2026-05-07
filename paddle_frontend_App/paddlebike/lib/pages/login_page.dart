@@ -8,6 +8,7 @@ import 'package:paddlebike/Apiendpoints/apiservices/auth_api_service.dart';
 import 'package:paddlebike/Apiendpoints/apiservices/user_session_manager.dart';
 import 'package:paddlebike/Apiendpoints/models/auth_models.dart';
 import 'package:paddlebike/Apiendpoints/models/api_response.dart';
+import 'package:paddlebike/pages/forgot_password_page.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 final GoogleSignIn _googleSignIn = GoogleSignIn();
@@ -128,7 +129,10 @@ class _login_pageState extends State<login_page> {
                     children: [
                       TextButton(
                         onPressed: () {
-                          // TODO: Implement forgot password navigation
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const ForgotPasswordPage()),
+                          );
                         },
                         child: const Text('Forgot Password?'),
                       ),

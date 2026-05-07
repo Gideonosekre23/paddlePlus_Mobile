@@ -120,6 +120,7 @@ class User {
   final String? profilePicture;
   final String verificationStatus;
   final double? total_earnings;
+  final double? pending_balance;
 
   const User({
     required this.id,
@@ -128,34 +129,22 @@ class User {
     this.phoneNumber,
     this.address,
     this.total_earnings,
+    this.pending_balance,
     this.profilePicture,
     required this.verificationStatus,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
-    if (!json.containsKey('username') ||
-        !json.containsKey('email') ||
-        !json.containsKey('verification_status')) {
-      throw const FormatException(
-        "Invalid JSON for User: Missing required keys",
-      );
-    }
     return User(
-      id: json['id'] as int,
-      username: json['username'] as String,
-      email: json['email'] as String,
-
-      phoneNumber: json.containsKey('phone_number')
-          ? json['phone_number'] as String?
-          : null,
-      total_earnings: json.containsKey('total_earnings')
-          ? (json['total_earnings'] as num?)?.toDouble()
-          : null,
-      address: json.containsKey('address') ? json['address'] as String? : null,
-      profilePicture: json.containsKey('profile_picture')
-          ? json['profile_picture'] as String?
-          : null,
-      verificationStatus: json['verification_status'] as String,
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      username: json['username'] as String? ?? '',
+      email: json['email'] as String? ?? '',
+      phoneNumber: json['phone_number'] as String?,
+      total_earnings: (json['total_earnings'] as num?)?.toDouble(),
+      pending_balance: (json['pending_balance'] as num?)?.toDouble(),
+      address: json['address'] as String?,
+      profilePicture: json['profile_picture'] as String?,
+      verificationStatus: json['verification_status'] as String? ?? 'pending',
     );
   }
 
@@ -171,6 +160,7 @@ class User {
     if (address != null) data['address'] = address;
     if (profilePicture != null) data['profile_picture'] = profilePicture;
     if (total_earnings != null) data['total_earnings'] = total_earnings;
+    if (pending_balance != null) data['pending_balance'] = pending_balance;
     return data;
   }
 }
@@ -208,40 +198,31 @@ class LoginRequest {
 
 class LoginResponse {
   final User user;
-
   final String accessToken;
   final String refreshToken;
-  final String chatWsUrl;
-  final String wsUrl;
+  final String? chatWsUrl;
+  final String? wsUrl;
 
   const LoginResponse({
     required this.user,
     required this.accessToken,
     required this.refreshToken,
-    required this.chatWsUrl,
-    required this.wsUrl,
+    this.chatWsUrl,
+    this.wsUrl,
   });
 
   factory LoginResponse.fromJson(Map<String, dynamic> json) {
-    // Ensure the 'user' key itself is present
     if (!json.containsKey('user')) {
       throw const FormatException(
         "Invalid JSON for LoginResponse: Missing 'user' key",
       );
     }
 
-    // Access the nested user data
     final userData = json['user'] as Map<String, dynamic>;
 
-    // Ensure all expected keys are present within the 'user' object
-    if (!userData.containsKey('access') ||
-        !userData.containsKey('refresh') ||
-        !userData.containsKey('chat_ws_url') ||
-        !userData.containsKey('ws_url') ||
-        !userData.containsKey('id') ||
-        !userData.containsKey('total_earnings')) {
+    if (!userData.containsKey('access') || !userData.containsKey('refresh')) {
       throw const FormatException(
-        "Invalid JSON for LoginResponse: Missing token or WebSocket URL keys within the 'user' object",
+        "Invalid JSON for LoginResponse: Missing 'access' or 'refresh' token",
       );
     }
 
@@ -253,14 +234,15 @@ class LoginResponse {
       'profile_picture': userData['profile_picture'],
       'verification_status': userData['verification_status'],
       'total_earnings': userData['total_earnings'],
+      'pending_balance': userData['pending_balance'],
     };
 
     return LoginResponse(
       user: User.fromJson(cleanUserData),
       accessToken: userData['access'] as String,
       refreshToken: userData['refresh'] as String,
-      chatWsUrl: userData['chat_ws_url'] as String,
-      wsUrl: userData['ws_url'] as String,
+      chatWsUrl: userData['chat_ws_url'] as String?,
+      wsUrl: userData['ws_url'] as String?,
     );
   }
 }

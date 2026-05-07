@@ -48,29 +48,54 @@ class VerificationOwnerConsumer(AsyncWebsocketConsumer):
     @sync_to_async
     def create_user_and_profile(self, metadata):
         try:
+            from django.core.cache import cache
+            pw_key = metadata.get('pw_key')
+            if not pw_key:
+                raise ValueError("Registration session has no password reference")
+            password = cache.get(f"reg_pw_{pw_key}")
+            if not password:
+                raise ValueError("Registration session expired — please register again")
+            cache.delete(f"reg_pw_{pw_key}")
+
             with transaction.atomic():
                 user = User.objects.create_user(
                     username=metadata['username'],
                     email=metadata['email'],
-                    password=metadata['password']
+                    password=password
                 )
-                
-                owner_profile = OwnerProfile.objects.create(
+
+                OwnerProfile.objects.create(
                     user=user,
-                    phone_number=metadata['phone_number'],
-                    cpn=metadata['cpn'],
-                    latitude=float(metadata['latitude']),
-                    longitude=float(metadata['longitude']),
+                    phone_number=metadata.get('phone_number', ''),
+                    cpn=metadata.get('cpn', ''),
+                    address=metadata.get('address', ''),
+                    latitude=float(metadata['latitude']) if metadata.get('latitude', '').strip() else None,
+                    longitude=float(metadata['longitude']) if metadata.get('longitude', '').strip() else None,
                     verification_status='verified',
                     verification_session_id=self.session_id
                 )
-                
+
                 refresh = RefreshToken.for_user(user)
+                access = str(refresh.access_token)
+
+                server = self.scope.get('server') or ('localhost', 8000)
+                host_header = dict(self.scope.get('headers', [])).get(b'host', b'').decode()
+                host = host_header or (f"{server[0]}:{server[1]}" if server[1] not in (80, 443) else server[0])
+                scheme = 'wss' if self.scope.get('type') == 'websocket' and dict(self.scope.get('headers', [])).get(b'x-forwarded-proto', b'').decode() == 'https' else 'ws'
+
                 return {
-                    'user_id': user.id,
+                    'id': user.id,
                     'username': user.username,
-                    'access_token': str(refresh.access_token),
-                    'refresh_token': str(refresh)
+                    'email': user.email,
+                    'phone_number': metadata.get('phone_number', ''),
+                    'profile_picture': None,
+                    'address': metadata.get('address', ''),
+                    'verification_status': 'verified',
+                    'total_earnings': 0.0,
+                    'access': access,
+                    'refresh': str(refresh),
+                    'ws_url': f'{scheme}://{host}/ws/notifications/user_{user.id}/?token={access}',
+                    'chat_ws_url': f'{scheme}://{host}/ws/chat/',
                 }
         except Exception as e:
             logger.error(f"User creation failed: {str(e)}")

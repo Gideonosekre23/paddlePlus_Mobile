@@ -2,7 +2,6 @@
 class ChatMessage {
   final int id;
   final String content;
-  final int sender;
   final int senderId;
   final String senderUsername;
   final DateTime timestamp;
@@ -11,7 +10,6 @@ class ChatMessage {
   const ChatMessage({
     required this.id,
     required this.content,
-    required this.sender,
     required this.senderId,
     required this.senderUsername,
     required this.timestamp,
@@ -24,13 +22,21 @@ class ChatMessage {
     return ChatMessage(
       id: json['id'] as int,
       content: json['content'] as String,
-      sender: json['sender'] as int,
-      senderId: json['sender_id'] as int,
+      senderId: (json['sender_id'] ?? json['sender']) as int,
       senderUsername: json['sender_username'] as String,
       timestamp: DateTime.parse(json['timestamp'] as String),
       isRead: json['is_read'] as bool? ?? false,
     );
   }
+
+  ChatMessage copyWith({bool? isRead}) => ChatMessage(
+        id: id,
+        content: content,
+        senderId: senderId,
+        senderUsername: senderUsername,
+        timestamp: timestamp,
+        isRead: isRead ?? this.isRead,
+      );
 
   bool isFromCurrentUser(int currentUserId) => senderId == currentUserId;
 

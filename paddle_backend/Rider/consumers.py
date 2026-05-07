@@ -31,29 +31,74 @@ class VerificationRiderConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def create_user_and_profile(self, metadata):
+        from django.core.cache import cache as _cache
+        pw_key = metadata.get('pw_key')
+        if not pw_key:
+            raise ValueError("Registration session has no password reference")
+        password = _cache.get(f"reg_pw_{pw_key}")
+        if not password:
+            raise ValueError("Registration session expired — please register again")
+        _cache.delete(f"reg_pw_{pw_key}")
+
         with transaction.atomic():
             user = User.objects.create_user(
                 username=metadata['username'],
                 email=metadata['email'],
-                password=metadata['password']
+                password=password
             )
             
             rider_profile = UserProfile.objects.create(
                 user=user,
-                phone_number=metadata['phone_number'],
-                cpn=metadata['cpn'],
-                latitude=float(metadata['latitude']),
-                longitude=float(metadata['longitude']),
+                phone_number=metadata.get('phone_number', ''),
+                cpn=metadata.get('cpn', ''),
+                address=metadata.get('address', ''),
+                latitude=float(metadata['latitude']) if metadata.get('latitude', '').strip() else None,
+                longitude=float(metadata['longitude']) if metadata.get('longitude', '').strip() else None,
                 verification_status='verified',
-                verification_session_id=self.session_id
+                verification_session_id=self.session_id,
+                apple_sub=metadata.get('apple_sub') or None,
             )
-            
+
+            from django.core.cache import cache
+            import base64
+            import uuid as _uuid
+            from django.core.files.base import ContentFile
+            profile_pic_b64 = cache.get(f"reg_profile_pic_{self.session_id}")
+            if profile_pic_b64:
+                try:
+                    if ',' in profile_pic_b64:
+                        profile_pic_b64 = profile_pic_b64.split(',', 1)[1]
+                    # 5 MB limit for base64 profile pictures (~3.7 MB raw)
+                    if len(profile_pic_b64) > 7_000_000:
+                        logger.warning(f"Profile picture too large for session {self.session_id}, skipping")
+                    else:
+                        rider_profile.profile_picture.save(
+                            f"profile_{_uuid.uuid4()}.jpg",
+                            ContentFile(base64.b64decode(profile_pic_b64)),
+                            save=True,
+                        )
+                    cache.delete(f"reg_profile_pic_{self.session_id}")
+                except Exception as e:
+                    logger.warning(f"Profile picture save failed for session {self.session_id}: {e}")
+
             refresh = RefreshToken.for_user(user)
+            access = str(refresh.access_token)
+
+            scheme = self.scope.get('scheme', 'ws')
+            server = self.scope.get('server', ('localhost', 8000))
+            host = f"{server[0]}:{server[1]}"
+
             return {
-                'user_id': user.id,
+                'id': user.id,
                 'username': user.username,
-                'access_token': str(refresh.access_token),
-                'refresh_token': str(refresh)
+                'email': user.email,
+                'phone_number': rider_profile.phone_number,
+                'profile_picture': rider_profile.profile_picture.url if rider_profile.profile_picture else None,
+                'verification_status': 'verified',
+                'access': access,
+                'refresh': str(refresh),
+                'ws_url': f'{scheme}://{host}/ws/notifications/user_{user.id}/?token={access}',
+                'chat_ws_url': f'{scheme}://{host}/ws/chat/',
             }
 
     async def check_verification_status(self):
@@ -84,7 +129,7 @@ class VerificationRiderConsumer(AsyncWebsocketConsumer):
                         await self.close()
                         break
                     
-                    elif current_status == 'error' or current_status == 'canceled' :
+                    elif current_status == 'failed' or current_status == 'canceled' :
                         await self.send(text_data=json.dumps({
                             'type': 'verification_complete',
                             'status': 'unverified',

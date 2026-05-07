@@ -44,3 +44,20 @@ paddle_backend/paddle_backend/.env
 
 # OS
 Thumbs.db
+desktop.ini
+
+# Claude AI local session data (memory, plans, settings)
+.claude/
+
+# User-uploaded media stored outside /media/ directory
+paddle_backend/Owner/profile/
+paddle_backend/bike_images/
+
+# Generated documentation
+PaddlePlus_System_Documentation.html
+
+# Django collected static files
+**/staticfiles/
+
+# Log files
+*.log

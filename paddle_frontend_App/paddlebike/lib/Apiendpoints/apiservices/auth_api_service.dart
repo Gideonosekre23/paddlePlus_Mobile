@@ -102,6 +102,26 @@ class AuthApiService {
     });
   }
 
+  static Future<ApiResponse<Map<String, dynamic>>> connectStripeAccount() async {
+    return BaseApiService.requestWithRetry(() async {
+      return BaseApiService.post<Map<String, dynamic>>(
+        '/owner/payment/connect/',
+        fromJson: (json) => json,
+        auth: true,
+      );
+    });
+  }
+
+  static Future<ApiResponse<Map<String, dynamic>>> getStripeConnectStatus() async {
+    return BaseApiService.requestWithRetry(() async {
+      return BaseApiService.get<Map<String, dynamic>>(
+        '/owner/payment/connect/status/',
+        fromJson: (json) => json,
+        auth: true,
+      );
+    });
+  }
+
   static Future<ApiResponse<void>> deleteProfile() async {
     try {
       final response = await BaseApiService.delete<void>(
@@ -172,4 +192,105 @@ class AuthApiService {
       );
     });
   }
+
+  static Future<ApiResponse<Map<String, dynamic>>> forgotPassword(String email) {
+    return BaseApiService.requestWithRetry(() async {
+      return BaseApiService.post<Map<String, dynamic>>(
+        '/owner/password/forgot/',
+        body: {'email': email},
+        fromJson: (json) => json,
+        auth: false,
+      );
+    });
+  }
+
+  static Future<ApiResponse<Map<String, dynamic>>> verifyResetOtp(String email, String otp) {
+    return BaseApiService.requestWithRetry(() async {
+      return BaseApiService.post<Map<String, dynamic>>(
+        '/owner/password/verify-otp/',
+        body: {'email': email, 'otp': otp},
+        fromJson: (json) => json,
+        auth: false,
+      );
+    });
+  }
+
+  static Future<ApiResponse<Map<String, dynamic>>> resetPassword(String resetToken, String newPassword) {
+    return BaseApiService.requestWithRetry(() async {
+      return BaseApiService.post<Map<String, dynamic>>(
+        '/owner/password/reset/',
+        body: {'reset_token': resetToken, 'new_password': newPassword},
+        fromJson: (json) => json,
+        auth: false,
+      );
+    });
+  }
+
+  static Future<ApiResponse<Map<String, dynamic>>> changePassword(String oldPassword, String newPassword) {
+    return BaseApiService.requestWithRetry(() async {
+      return BaseApiService.post<Map<String, dynamic>>(
+        '/owner/password/change/',
+        body: {'old_password': oldPassword, 'new_password': newPassword},
+        fromJson: (json) => json,
+        auth: true,
+      );
+    });
+  }
+
+  /// Upload a new profile picture for the owner.
+  /// [imagePath] is the absolute path to the local image file.
+  static Future<ApiResponse<Map<String, dynamic>>> updateProfilePicture(
+    String imagePath,
+  ) =>
+      BaseApiService.requestWithRetry(
+        () => BaseApiService.patchMultipart<Map<String, dynamic>>(
+          '/owner/profile/update/',
+          fields: const {},
+          filePaths: {'profile_picture': imagePath},
+          fromJson: (json) => json,
+          auth: true,
+        ),
+      );
+
+  /// Fetch the owner's notification history.
+  static Future<ApiResponse<Map<String, dynamic>>> getNotificationHistory({
+    int limit = 50,
+    int offset = 0,
+    bool unreadOnly = false,
+  }) =>
+      BaseApiService.requestWithRetry(
+        () => BaseApiService.get<Map<String, dynamic>>(
+          '/notifications/',
+          params: {
+            'limit': '$limit',
+            'offset': '$offset',
+            if (unreadOnly) 'unread': 'true',
+          },
+          fromJson: (json) => json,
+          auth: true,
+        ),
+      );
+
+  /// Mark notifications as read. Pass [ids] to mark specific ones, or omit to mark all.
+  static Future<ApiResponse<Map<String, dynamic>>> markNotificationsRead({
+    List<int>? ids,
+  }) =>
+      BaseApiService.requestWithRetry(
+        () => BaseApiService.post<Map<String, dynamic>>(
+          '/notifications/mark-read/',
+          body: ids != null ? {'ids': ids} : {},
+          fromJson: (json) => json,
+          auth: true,
+        ),
+      );
+
+  /// Fetch pending ride requests for the owner (REST fallback if WebSocket notification was missed).
+  static Future<ApiResponse<Map<String, dynamic>>> getPendingRideRequests() =>
+      BaseApiService.requestWithRetry(
+        () => BaseApiService.get<Map<String, dynamic>>(
+          '/riderequest/pending/',
+          fromJson: (json) => json,
+          auth: true,
+        ),
+      );
 }
