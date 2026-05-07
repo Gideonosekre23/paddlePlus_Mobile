@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:paddlebike/Apiendpoints/apiservices/base_api_service.dart';
 import 'package:paddlebike/Apiendpoints/apiservices/token_storage_service.dart';
@@ -10,6 +11,7 @@ class ChatWebSocketService {
   StreamController<ChatMessage>? _messageController;
   StreamController<String>? _errorController;
   StreamController<bool>? _connectionController;
+  StreamController<int>? _messagesReadController;
 
   bool _isConnected = false;
   bool _isConnecting = false;
@@ -22,6 +24,8 @@ class ChatWebSocketService {
       _errorController?.stream ?? const Stream.empty();
   Stream<bool> get connectionStream =>
       _connectionController?.stream ?? const Stream.empty();
+  Stream<int> get messagesReadStream =>
+      _messagesReadController?.stream ?? const Stream.empty();
 
   // Getters
   bool get isConnected => _isConnected;
@@ -39,12 +43,13 @@ class ChatWebSocketService {
     _messageController ??= StreamController<ChatMessage>.broadcast();
     _errorController ??= StreamController<String>.broadcast();
     _connectionController ??= StreamController<bool>.broadcast();
+    _messagesReadController ??= StreamController<int>.broadcast();
   }
 
   // Connect to chat WebSocket
   Future<bool> connectToChat({required String tripId}) async {
     if (_isConnecting || (_isConnected && _currentTripId == tripId)) {
-      print('ChatService: Already connecting or connected to trip $tripId');
+      debugPrint('ChatService: Already connecting or connected to trip $tripId');
       return _isConnected;
     }
 
@@ -77,9 +82,15 @@ class ChatWebSocketService {
 
       String fullWsUrl =
           '$wsScheme://$wsHostPort/ws/chat/$tripId/?token=$token';
-      print("ChatService: Connecting to WebSocket: $fullWsUrl");
+      // Do not log the full URL — it contains the auth token
+      assert(() { debugPrint("ChatService: Connecting to chat WS for trip $tripId"); return true; }());
 
       _channel = WebSocketChannel.connect(Uri.parse(fullWsUrl));
+      // Wait for the connection to be ready with a 10-second timeout
+      await _channel!.ready.timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => throw TimeoutException('WebSocket connection timed out'),
+      );
       _channel!.stream.listen(
         _handleMessage,
         onError: _handleError,
@@ -91,10 +102,10 @@ class ChatWebSocketService {
       _currentTripId = tripId;
 
       _connectionController?.add(true);
-      print('ChatService: ✅ Connected to chat for trip: $tripId');
+      debugPrint('ChatService: ✅ Connected to chat for trip: $tripId');
       return true;
     } catch (e) {
-      print('ChatService: ❌ Failed to connect to chat: $e');
+      debugPrint('ChatService: ❌ Failed to connect to chat: $e');
       _isConnecting = false;
       _isConnected = false;
       _connectionController?.add(false);
@@ -106,7 +117,7 @@ class ChatWebSocketService {
   // Handle trip completion
   void handleTripCompletion(String tripId) {
     if (_currentTripId == tripId) {
-      print('ChatService: Trip $tripId completed, disconnecting chat...');
+      debugPrint('ChatService: Trip $tripId completed, disconnecting chat...');
       disconnect();
     }
   }
@@ -127,28 +138,12 @@ class ChatWebSocketService {
       final messageData = {'action': 'send_message', 'content': content.trim()};
 
       final messageJson = jsonEncode(messageData);
-      print('ChatService: Sending message: $messageJson');
+      debugPrint('ChatService: Sending message: $messageJson');
       _channel!.sink.add(messageJson);
       return true;
     } catch (e) {
-      print('ChatService: ❌ Failed to send message: $e');
+      debugPrint('ChatService: ❌ Failed to send message: $e');
       _errorController?.add('Failed to send message: $e');
-      return false;
-    }
-  }
-
-  // Update the mark as read function
-  Future<bool> markAsRead() async {
-    if (!_isConnected || _channel == null) {
-      return false;
-    }
-
-    try {
-      final request = {'action': 'mark_read'};
-      _channel!.sink.add(jsonEncode(request));
-      return true;
-    } catch (e) {
-      print('ChatService: ❌ Failed to mark as read: $e');
       return false;
     }
   }
@@ -157,38 +152,36 @@ class ChatWebSocketService {
   void _handleMessage(dynamic data) {
     try {
       final json = jsonDecode(data as String) as Map<String, dynamic>;
-      print('ChatService: Received message: $json');
+      debugPrint('ChatService: Received message: $json');
 
       switch (json['type']) {
         case 'new_message':
-          final messageData = json['message'] as Map<String, dynamic>;
+          final messageData = json['message'] as Map<String, dynamic>?;
+          if (messageData == null) break;
           final chatMessage = ChatMessage.fromJson(messageData);
           _messageController?.add(chatMessage);
           break;
 
         case 'connection_established':
-          print('ChatService: Connection established: ${json['message']}');
+          debugPrint('ChatService: Connection established: ${json['message']}');
           break;
 
-        case 'trip_completed':
-          print('ChatService: Trip completed notification received');
-          final tripId = json['trip_id']?.toString();
-          if (tripId != null) {
-            handleTripCompletion(tripId);
-          }
+        case 'messages_read':
+          final readerId = json['reader_id'] as int?;
+          if (readerId != null) _messagesReadController?.add(readerId);
           break;
 
         case 'error':
           final error = json['error'] ?? json['message'] ?? 'Unknown error';
-          print('ChatService: Server error: $error');
+          debugPrint('ChatService: Server error: $error');
           _errorController?.add(error);
           break;
 
         default:
-          print('ChatService: Unknown message type: ${json['type']}');
+          debugPrint('ChatService: Unknown message type: ${json['type']}');
       }
     } catch (e) {
-      print('ChatService: ❌ Failed to parse message: $e');
+      debugPrint('ChatService: ❌ Failed to parse message: $e');
       _errorController?.add('Failed to parse message: $e');
     }
   }
@@ -196,7 +189,7 @@ class ChatWebSocketService {
   // Handle errors
   void _handleError(dynamic error) {
     final errorMessage = error.toString();
-    print('ChatService: ❌ WebSocket error: $errorMessage');
+    debugPrint('ChatService: ❌ WebSocket error: $errorMessage');
     _isConnected = false;
     _isConnecting = false;
     _connectionController?.add(false);
@@ -205,7 +198,7 @@ class ChatWebSocketService {
 
   // Handle disconnect
   void _handleDisconnect() {
-    print('ChatService: 🔌 WebSocket disconnected');
+    debugPrint('ChatService: 🔌 WebSocket disconnected');
     _isConnected = false;
     _isConnecting = false;
     _currentTripId = null;
@@ -214,7 +207,7 @@ class ChatWebSocketService {
 
   // Disconnect
   Future<void> disconnect() async {
-    print('ChatService: Disconnecting...');
+    debugPrint('ChatService: Disconnecting...');
 
     if (_channel != null) {
       await _channel!.sink.close();
@@ -227,17 +220,19 @@ class ChatWebSocketService {
   }
 
   Future<void> dispose() async {
-    print('ChatService: Disposing...');
+    debugPrint('ChatService: Disposing...');
 
     await disconnect();
 
     await _messageController?.close();
     await _errorController?.close();
     await _connectionController?.close();
+    await _messagesReadController?.close();
 
     _messageController = null;
     _errorController = null;
     _connectionController = null;
+    _messagesReadController = null;
   }
 
   // Reconnect
@@ -247,118 +242,41 @@ class ChatWebSocketService {
     }
     return false;
   }
+
+  static Future<Map<String, dynamic>?> getChatRoom(String tripId) async {
+    final response = await BaseApiService.get<Map<String, dynamic>>(
+      '/chat/room/$tripId/',
+      fromJson: (json) => json,
+      auth: true,
+    );
+    if (response.success && response.data != null) {
+      final data = response.data!;
+      final roomId = data['chat_room_id'] as int?;
+      final rawMessages = data['messages'] as List<dynamic>? ?? [];
+      final messages = rawMessages
+          .whereType<Map<String, dynamic>>()
+          .map((m) => ChatMessage.fromJson(m))
+          .toList();
+      return {'chat_room_id': roomId, 'messages': messages};
+    }
+    return null;
+  }
+
+  static Future<int?> getChatRoomId(String tripId) async {
+    final result = await getChatRoom(tripId);
+    return result?['chat_room_id'] as int?;
+  }
+
+  static Future<void> markMessagesRead(int chatRoomId) async {
+    try {
+      await BaseApiService.put<Map<String, dynamic>>(
+        '/chat/read/$chatRoomId/',
+        fromJson: (json) => json,
+        auth: true,
+      );
+    } catch (e) {
+      debugPrint('ChatService: markMessagesRead failed: $e');
+    }
+  }
 }
 
-class NotificationWebSocketService {
-  WebSocketChannel? _channel;
-  StreamController<ChatNotification>? _notificationController;
-  StreamController<String>? _errorController;
-  bool _isConnected = false;
-
-  // Streams
-  Stream<ChatNotification> get notificationStream =>
-      _notificationController?.stream ?? const Stream.empty();
-  Stream<String> get errorStream =>
-      _errorController?.stream ?? const Stream.empty();
-
-  bool get isConnected => _isConnected;
-
-  // Singleton pattern
-  static final NotificationWebSocketService _instance =
-      NotificationWebSocketService._internal();
-  factory NotificationWebSocketService() => _instance;
-  NotificationWebSocketService._internal();
-
-  // Connect to notifications WebSocket
-  Future<bool> connectToNotifications({
-    required int userId,
-    required String token,
-  }) async {
-    try {
-      await disconnect();
-
-      _notificationController = StreamController<ChatNotification>.broadcast();
-      _errorController = StreamController<String>.broadcast();
-
-      String httpBaseUrl = BaseApiService.baseUrl;
-      Uri parsedHttpBaseUrl = Uri.parse(httpBaseUrl);
-      String wsScheme = parsedHttpBaseUrl.scheme == 'https' ? 'wss' : 'ws';
-      String wsHostPort = parsedHttpBaseUrl.host;
-      if (parsedHttpBaseUrl.hasPort &&
-          parsedHttpBaseUrl.port != 80 &&
-          parsedHttpBaseUrl.port != 443) {
-        wsHostPort += ':${parsedHttpBaseUrl.port}';
-      }
-
-      final wsUrl =
-          '$wsScheme://$wsHostPort/ws/notifications/user_${userId}_$token/';
-      _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
-
-      _channel!.stream.listen(
-        _handleNotification,
-        onError: _handleError,
-        onDone: _handleDisconnect,
-      );
-
-      _isConnected = true;
-
-      print(
-        'NotificationService: ✅ Connected to notifications for user: $userId',
-      );
-      return true;
-    } catch (e) {
-      print('NotificationService: ❌ Failed to connect to notifications: $e');
-      _handleError(e.toString());
-      return false;
-    }
-  }
-
-  // Handle incoming notifications
-  void _handleNotification(dynamic data) {
-    try {
-      final json = jsonDecode(data as String) as Map<String, dynamic>;
-
-      if (json['type'] == 'chat_message_notification') {
-        final notification = ChatNotification.fromJson(json);
-        _notificationController?.add(notification);
-      }
-    } catch (e) {
-      print('NotificationService: ❌ Failed to parse notification: $e');
-      _handleError('Failed to parse notification: $e');
-    }
-  }
-
-  // Handle errors
-  void _handleError(dynamic error) {
-    final errorMessage = error.toString();
-    print('NotificationService: ❌ WebSocket error: $errorMessage');
-    _errorController?.add(errorMessage);
-  }
-
-  // Handle disconnect
-  void _handleDisconnect() {
-    print('NotificationService: 🔌 WebSocket disconnected');
-    _isConnected = false;
-  }
-
-  // Disconnect
-  Future<void> disconnect() async {
-    if (_channel != null) {
-      await _channel!.sink.close();
-      _channel = null;
-    }
-
-    _isConnected = false;
-
-    await _notificationController?.close();
-    await _errorController?.close();
-
-    _notificationController = null;
-    _errorController = null;
-  }
-
-  // Dispose
-  void dispose() {
-    disconnect();
-  }
-}

@@ -321,9 +321,9 @@ class AlternativeBike {
       name: json['name'] as String,
       brand: json['brand'] as String,
       model: json['model'] as String,
-      distanceKm: (json['distance_km'] as num).toDouble(),
-      latitude: (loc['latitude'] as num).toDouble(),
-      longitude: (loc['longitude'] as num).toDouble(),
+      distanceKm: (json['distance_km'] as num? ?? 0).toDouble(),
+      latitude: ((loc['latitude'] ?? 0) as num).toDouble(),
+      longitude: ((loc['longitude'] ?? 0) as num).toDouble(),
       bikeImage: json['bike_image'] as String?,
     );
   }
@@ -404,8 +404,13 @@ class RideRequestRequest {
 class StartTripResponse {
   final String message;
   final String startTime; // ISO 8601 DateTime string
+  final bool paymentHeld;
 
-  const StartTripResponse({required this.message, required this.startTime});
+  const StartTripResponse({
+    required this.message,
+    required this.startTime,
+    required this.paymentHeld,
+  });
 
   factory StartTripResponse.fromJson(Map<String, dynamic> json) {
     if (!json.containsKey('message')) {
@@ -416,6 +421,7 @@ class StartTripResponse {
     return StartTripResponse(
       message: json['message'] as String,
       startTime: json['start_time']?.toString() ?? '',
+      paymentHeld: json['payment_held'] as bool? ?? false,
     );
   }
 }
@@ -603,7 +609,7 @@ class GetUserTripsResponse {
         "Invalid JSON for GetUserTripsResponse: Missing one or more required keys.",
       );
     }
-    var tripsList = json['trips'] as List;
+    var tripsList = (json['trips'] as List?) ?? [];
     List<UserTrip> tripsData =
         tripsList
             .map((i) => UserTrip.fromJson(i as Map<String, dynamic>))
@@ -1133,6 +1139,7 @@ class RequestStatusResponse {
   final int? ownerId;
   final double? price;
   final String? requestedTime;
+  final int? tripId;
 
   const RequestStatusResponse({
     required this.status,
@@ -1141,6 +1148,7 @@ class RequestStatusResponse {
     this.ownerId,
     this.price,
     this.requestedTime,
+    this.tripId,
   });
 
   factory RequestStatusResponse.fromJson(Map<String, dynamic> json) {
@@ -1151,6 +1159,7 @@ class RequestStatusResponse {
       ownerId: json['owner_id'] as int?,
       price: (json['price'] as num?)?.toDouble(),
       requestedTime: json['requested_time'] as String?,
+      tripId: json['trip_id'] as int?,
     );
   }
 }

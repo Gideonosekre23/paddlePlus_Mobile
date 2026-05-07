@@ -52,36 +52,6 @@ class OwnerTripsApiService {
     });
   }
 
-  /// Accept or reject a ride request (if you have this feature)
-  /// Corresponds to POST /trip/owner/respond/{trip_id}/
-  static Future<ApiResponse<Map<String, dynamic>>> respondToRideRequest(
-    String tripId,
-    bool accept,
-  ) {
-    return BaseApiService.requestWithRetry(() async {
-      return BaseApiService.post<Map<String, dynamic>>(
-        '$_tripBasePath/owner/respond/$tripId/',
-        body: {'accept': accept},
-        fromJson: (json) => json,
-        auth: true,
-      );
-    });
-  }
-
-  /// Cancel an owner trip
-  /// Corresponds to POST /trip/owner/cancel/{trip_id}/
-  static Future<ApiResponse<Map<String, dynamic>>> cancelOwnerTrip(
-    String tripId,
-  ) {
-    return BaseApiService.requestWithRetry(() async {
-      return BaseApiService.post<Map<String, dynamic>>(
-        '$_tripBasePath/owner/cancel/$tripId/',
-        fromJson: (json) => json,
-        auth: true,
-      );
-    });
-  }
-
   /// Get owner earnings summary
   /// Corresponds to GET /trip/owner/earnings/
   static Future<ApiResponse<Map<String, dynamic>>> getOwnerEarnings({

@@ -9,9 +9,9 @@ from Owner.consumers import VerificationOwnerConsumer
 
 
 websocket_urlpatterns = [
-    re_path(r'^ws/verification/(?P<session_id>vs_[A-Za-z0-9]+)/$', VerificationRiderConsumer.as_asgi()),
-    re_path(r'^ws/owner/verification/(?P<session_id>vs_[A-Za-z0-9]+)/$', VerificationOwnerConsumer.as_asgi()),
+    re_path(r'^ws/verification/(?P<session_id>vs_[A-Za-z0-9_]+)/$', VerificationRiderConsumer.as_asgi()),
+    re_path(r'^ws/owner/verification/(?P<session_id>vs_[A-Za-z0-9_]+)/$', VerificationOwnerConsumer.as_asgi()),
     re_path(r'^ws/chat/(?P<trip_id>\w+)/$', ChatConsumer.as_asgi()),
     re_path(r'^ws/hardware/(?P<serial_number>\w+)/gps/$', GPSConsumer.as_asgi()),
-    re_path(r'^ws/notifications/$', NotificationConsumer.as_asgi()),
+    re_path(r'^ws/notifications/(?P<channel_id>[^/]+)/$', NotificationConsumer.as_asgi()),
 ]

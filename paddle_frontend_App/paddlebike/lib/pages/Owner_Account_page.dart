@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:paddlebike/Apiendpoints/apiservices/bike_api_service.dart';
 import 'package:paddlebike/Apiendpoints/apiservices/Ride_api_service.dart';
 import 'package:paddlebike/Apiendpoints/apiservices/image_utils.dart';
+import 'package:paddlebike/Apiendpoints/apiservices/base_api_service.dart';
 import 'package:paddlebike/Apiendpoints/apiservices/user_session_manager.dart';
+import 'package:paddlebike/Apiendpoints/apiservices/wallet_api_service.dart';
 import 'package:paddlebike/Apiendpoints/models/bike_model.dart';
 import 'package:paddlebike/Apiendpoints/models/Ride_models.dart';
 import 'package:paddlebike/Apiendpoints/models/auth_models.dart';
 import 'package:paddlebike/pages/AddBikePage.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+
 
 class OwnerAccountPage extends StatefulWidget {
   const OwnerAccountPage({super.key});
@@ -21,6 +23,7 @@ class _OwnerAccountPageState extends State<OwnerAccountPage> {
   // Loading states
   bool _isLoadingBikes = false;
   bool _isLoadingTrips = false;
+  bool _isWithdrawing = false;
   User? _currentUser;
 
   // Data
@@ -28,19 +31,21 @@ class _OwnerAccountPageState extends State<OwnerAccountPage> {
   List<OwnerTrip> trips = [];
   OwnerInfo? ownerInfo;
   double weeklyEarnings = 0.0;
-
-  // User session manager
+  double _serverTotalEarnings = 0.0;
+  double _pendingBalance = 0.0;
 
   // Computed values - SIMPLIFIED
-  double get totalEarnings => _currentUser?.total_earnings ?? 0.0;
+  double get totalEarnings => _serverTotalEarnings > 0
+      ? _serverTotalEarnings
+      : (_currentUser?.total_earnings ?? 0.0);
   int get totalBikes => bikes.length;
   int get activeBikes => bikes.where((bike) => bike.isActive).length;
   int get availableBikes =>
       bikes.where((bike) => bike.isAvailable && bike.isActive).length;
   int get weeklyTrips {
-    final oneWeekAgo = DateTime.now().subtract(const Duration(days: 7));
+    final oneWeekAgo = DateTime.now().toUtc().subtract(const Duration(days: 7));
     return trips
-        .where((trip) => trip.date != null && trip.date!.isAfter(oneWeekAgo))
+        .where((trip) => trip.date != null && trip.date!.toUtc().isAfter(oneWeekAgo))
         .length;
   }
 
@@ -56,6 +61,7 @@ class _OwnerAccountPageState extends State<OwnerAccountPage> {
     if (mounted && _sessionManager.currentUser != null) {
       setState(() {
         _currentUser = _sessionManager.currentUser;
+        _pendingBalance = _currentUser?.pending_balance ?? _pendingBalance;
       });
       print('👤 Session changed - user: ${_currentUser?.username}');
       print(
@@ -65,7 +71,20 @@ class _OwnerAccountPageState extends State<OwnerAccountPage> {
   }
 
   Future<void> _loadData() async {
-    await Future.wait([_loadOwnerBikes(), _loadOwnerTrips()]);
+    await Future.wait([_loadOwnerBikes(), _loadOwnerTrips(), _loadOwnerEarnings()]);
+  }
+
+  Future<void> _loadOwnerEarnings() async {
+    try {
+      final response = await OwnerTripsApiService.getOwnerEarnings();
+      if (mounted && response.success && response.data != null) {
+        setState(() {
+          _serverTotalEarnings = (response.data!['total_earnings'] as num?)?.toDouble() ?? 0.0;
+        });
+      }
+    } catch (e) {
+      print('❌ Error loading earnings: $e');
+    }
   }
 
   Future<void> _loadOwnerBikes() async {
@@ -104,6 +123,9 @@ class _OwnerAccountPageState extends State<OwnerAccountPage> {
         setState(() {
           trips = response.data!.trips;
           ownerInfo = response.data!.owner;
+          if (ownerInfo != null) {
+            _pendingBalance = ownerInfo!.pendingBalance;
+          }
           _calculateWeeklyEarnings();
         });
         print('✅ Loaded ${trips.length} owner trips');
@@ -118,9 +140,9 @@ class _OwnerAccountPageState extends State<OwnerAccountPage> {
   }
 
   void _calculateWeeklyEarnings() {
-    final oneWeekAgo = DateTime.now().subtract(const Duration(days: 7));
+    final oneWeekAgo = DateTime.now().toUtc().subtract(const Duration(days: 7));
     weeklyEarnings = trips
-        .where((trip) => trip.date != null && trip.date!.isAfter(oneWeekAgo))
+        .where((trip) => trip.date != null && trip.date!.toUtc().isAfter(oneWeekAgo))
         .fold(0.0, (sum, trip) => sum + (trip.ownerPayout ?? 0.0));
 
     print('💰 Weekly earnings calculated: $weeklyEarnings RON');
@@ -194,34 +216,26 @@ class _OwnerAccountPageState extends State<OwnerAccountPage> {
   }
 
   Widget _buildBikeImage(Bike bike, String bikeImageUrl) {
-    return CachedNetworkImage(
-      imageUrl: (bike.bikeImage?.isNotEmpty == true) ? bike.bikeImage! : '',
-      width: 80,
-      height: 80,
-      fit: BoxFit.cover,
-      placeholder: (context, url) => Container(
+    final url = bike.bikeImage?.isNotEmpty == true ? bike.bikeImage! : '';
+    if (url.isEmpty) {
+      return Container(
         width: 80,
         height: 80,
         color: const Color.fromARGB(255, 118, 172, 198).withOpacity(0.1),
-        child: const Icon(
-          Icons.pedal_bike,
-          color: Color.fromARGB(255, 118, 172, 198),
-          size: 40,
-        ),
+        child: const Icon(Icons.pedal_bike, color: Color.fromARGB(255, 118, 172, 198), size: 40),
+      );
+    }
+    return Image.network(
+      url,
+      width: 80,
+      height: 80,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, _) => Container(
+        width: 80,
+        height: 80,
+        color: const Color.fromARGB(255, 118, 172, 198).withOpacity(0.1),
+        child: const Icon(Icons.pedal_bike, color: Color.fromARGB(255, 118, 172, 198), size: 40),
       ),
-      errorWidget: (context, url, error) {
-        print('❌ Image error for ${bike.bikeName}: $error');
-        return Container(
-          width: 80,
-          height: 80,
-          color: const Color.fromARGB(255, 118, 172, 198).withOpacity(0.1),
-          child: const Icon(
-            Icons.pedal_bike,
-            color: Color.fromARGB(255, 118, 172, 198),
-            size: 40,
-          ),
-        );
-      },
     );
   }
 
@@ -268,9 +282,11 @@ class _OwnerAccountPageState extends State<OwnerAccountPage> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: _showWithdrawDialog,
-              icon: const Icon(Icons.monetization_on),
-              label: const Text('Withdraw Earnings'),
+              onPressed: _isWithdrawing ? null : _showWithdrawDialog,
+              icon: _isWithdrawing
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Color.fromARGB(255, 118, 172, 198)))
+                  : const Icon(Icons.monetization_on),
+              label: Text(_isWithdrawing ? 'Processing…' : 'Withdraw Earnings'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: const Color.fromARGB(255, 118, 172, 198),
@@ -758,7 +774,7 @@ class _OwnerAccountPageState extends State<OwnerAccountPage> {
     }
 
     // Convert relative path to full URL
-    const String baseUrl = 'http://10.0.2.2:8000';
+    final String baseUrl = BaseApiService.baseUrl;
 
     if (imagePath.startsWith('/')) {
       final fullUrl = '$baseUrl$imagePath';
@@ -822,15 +838,18 @@ class _OwnerAccountPageState extends State<OwnerAccountPage> {
   }
 
   Future<void> _activateBike(Bike bike) async {
-    final serialNumber = await _showActivationDialog();
-    if (serialNumber == null || serialNumber.isEmpty) return;
+    final result = await _showActivationDialog();
+    if (result == null) return;
+    final serialNumber = result['serial']!;
+    final factoryKey = result['key']!;
+    if (serialNumber.isEmpty || factoryKey.isEmpty) return;
 
     _showLoading('Activating bike...');
 
     try {
       final response = await BikeApiService.activateBike(
         bike.id,
-        ActivateBikeRequest(serialNumber: serialNumber),
+        ActivateBikeRequest(serialNumber: serialNumber, factoryKey: factoryKey),
       );
 
       Navigator.of(context).pop(); // Close loading dialog
@@ -891,10 +910,11 @@ class _OwnerAccountPageState extends State<OwnerAccountPage> {
     }
   }
 
-  Future<String?> _showActivationDialog() async {
+  Future<Map<String, String>?> _showActivationDialog() async {
     String serialNumber = '';
+    String factoryKey = '';
 
-    return showDialog<String>(
+    return showDialog<Map<String, String>>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Row(
@@ -908,7 +928,7 @@ class _OwnerAccountPageState extends State<OwnerAccountPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Enter the hardware serial number:'),
+            const Text('Enter the hardware credentials from the device sticker:'),
             const SizedBox(height: 16),
             TextField(
               onChanged: (value) => serialNumber = value.trim(),
@@ -916,6 +936,17 @@ class _OwnerAccountPageState extends State<OwnerAccountPage> {
                 labelText: 'Serial Number',
                 hintText: 'e.g., BH001234',
                 prefixIcon: Icon(Icons.qr_code),
+                border: OutlineInputBorder(),
+              ),
+              textCapitalization: TextCapitalization.characters,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              onChanged: (value) => factoryKey = value.trim(),
+              decoration: const InputDecoration(
+                labelText: 'Factory Key',
+                hintText: 'e.g., FK-XXXX-XXXX',
+                prefixIcon: Icon(Icons.key),
                 border: OutlineInputBorder(),
               ),
               textCapitalization: TextCapitalization.characters,
@@ -934,7 +965,7 @@ class _OwnerAccountPageState extends State<OwnerAccountPage> {
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'You can find the serial number on the bike\'s QR code sticker.',
+                      'Both the serial number and factory key are printed on the hardware sticker.',
                       style: TextStyle(fontSize: 12, color: Colors.blue),
                     ),
                   ),
@@ -950,8 +981,8 @@ class _OwnerAccountPageState extends State<OwnerAccountPage> {
           ),
           ElevatedButton(
             onPressed: () {
-              if (serialNumber.isNotEmpty) {
-                Navigator.of(context).pop(serialNumber);
+              if (serialNumber.isNotEmpty && factoryKey.isNotEmpty) {
+                Navigator.of(context).pop({'serial': serialNumber, 'key': factoryKey});
               }
             },
             style: ElevatedButton.styleFrom(
@@ -1040,10 +1071,33 @@ class _OwnerAccountPageState extends State<OwnerAccountPage> {
     );
   }
 
-  void _showWithdrawDialog() {
-    showDialog(
+  Future<void> _showWithdrawDialog() async {
+    if (_isWithdrawing) return;
+
+    // Fetch latest balance + Stripe readiness
+    Map<String, dynamic>? walletData;
+    try {
+      final resp = await WalletApiService.getWalletBalance();
+      if (resp.success && resp.data != null) {
+        walletData = resp.data;
+        if (mounted) {
+          setState(() {
+            _pendingBalance = (walletData!['pending_balance'] as num?)?.toDouble() ?? _pendingBalance;
+          });
+        }
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    final stripeReady = walletData?['stripe_ready'] == true;
+    final balance = _pendingBalance;
+    final fee = balance * 0.015;
+    final net = balance - fee;
+
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Row(
           children: [
             Icon(Icons.account_balance_wallet, color: Colors.green),
@@ -1053,8 +1107,10 @@ class _OwnerAccountPageState extends State<OwnerAccountPage> {
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
+              width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.green[50],
@@ -1063,76 +1119,68 @@ class _OwnerAccountPageState extends State<OwnerAccountPage> {
               ),
               child: Column(
                 children: [
-                  const Text(
-                    'Available Balance',
-                    style: TextStyle(fontSize: 14, color: Colors.grey),
-                  ),
+                  const Text('Available Balance', style: TextStyle(fontSize: 14, color: Colors.grey)),
                   const SizedBox(height: 4),
                   Text(
-                    '${totalEarnings.toStringAsFixed(2)} RON',
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green,
-                    ),
+                    '\$${balance.toStringAsFixed(2)}',
+                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.green),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue[50],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue[200]!),
+            if (balance >= 1.0 && stripeReady) ...[
+              const SizedBox(height: 12),
+              Text('Fee (1.5%): -\$${fee.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, color: Colors.grey)),
+              Text('You\'ll receive: \$${net.toStringAsFixed(2)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              const Text('Arrives in minutes via your connected account.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            ] else if (!stripeReady) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: Colors.orange[50], borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.orange[200]!)),
+                child: const Text('Bank account not connected. Go to Account → Payout Account to set it up first.', style: TextStyle(fontSize: 12, color: Colors.orange)),
               ),
-              child: const Column(
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.info, color: Colors.blue, size: 20),
-                      SizedBox(width: 8),
-                      Text(
-                        'Withdrawal Information',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue,
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Withdrawal feature is coming soon! Contact support for manual withdrawals.',
-                    style: TextStyle(fontSize: 12, color: Colors.blue),
-                  ),
-                ],
-              ),
-            ),
+            ] else if (balance < 1.0) ...[
+              const SizedBox(height: 12),
+              const Text('Minimum withdrawal is \$1.00.', style: TextStyle(fontSize: 13, color: Colors.grey)),
+            ],
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _showInfo(
-                'Contact support at support@paddleplus.com for withdrawals',
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
+          if (balance >= 1.0 && stripeReady)
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+              child: const Text('Withdraw'),
             ),
-            child: const Text('Contact Support'),
-          ),
         ],
       ),
     );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isWithdrawing = true);
+    try {
+      final resp = await WalletApiService.requestWithdrawal();
+      if (!mounted) return;
+      if (resp.success) {
+        final method = resp.data?['method'] as String? ?? 'instant';
+        final arrival = method == 'instant' ? 'Arrives in minutes!' : 'Arrives in 1–2 business days.';
+        _showSuccess('Payout sent! $arrival');
+        setState(() => _pendingBalance = 0.0);
+      } else {
+        _showError(resp.error ?? 'Withdrawal failed');
+      }
+    } catch (e) {
+      if (mounted) _showError('Error: $e');
+    } finally {
+      if (mounted) setState(() => _isWithdrawing = false);
+    }
   }
 
   void _showLoading(String message) {

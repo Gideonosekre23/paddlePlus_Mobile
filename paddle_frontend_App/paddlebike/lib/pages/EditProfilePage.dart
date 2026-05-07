@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:paddlebike/constants/button.dart';
@@ -28,7 +28,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   // State management
   bool _isLoading = false;
-  String? _profileImagePath;
+  Uint8List? _pickedImageBytes;
   String? _profileImageBase64;
 
   @override
@@ -145,7 +145,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   Widget _buildProfilePictureSection() {
     print("🖼️ Building profile picture section:");
-    print("  - Local path: $_profileImagePath");
+    print("  - Has picked image: ${_pickedImageBytes != null}");
     print(
       "  - Session manager profile: ${_sessionManager.currentUser?.profilePicture}",
     );
@@ -199,37 +199,19 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
-  // ✨ UPDATED: Helper method using ImageUtils for consistency
   ImageProvider? _getProfileImageProvider() {
-    try {
-      if (_profileImagePath != null && _profileImagePath!.isNotEmpty) {
-        final file = File(_profileImagePath!);
-        if (file.existsSync()) {
-          print("🖼️ Using local file: $_profileImagePath");
-          return FileImage(file);
-        } else {
-          print("🖼️ Local file doesn't exist, clearing path");
-          _profileImagePath = null;
-        }
-      }
-
-      final currentProfilePicture = _sessionManager.currentUser?.profilePicture;
-      if (currentProfilePicture != null && currentProfilePicture.isNotEmpty) {
-        print("🖼️ Using session profile picture: $currentProfilePicture");
-        try {
-          return ImageUtils.getProfileImageProvider(currentProfilePicture);
-        } catch (e) {
-          print("🖼️ Error getting profile image provider: $e");
-          return null;
-        }
-      }
-
-      print("🖼️ No profile image available");
-      return null;
-    } catch (e) {
-      print("🖼️ Error in _getProfileImageProvider: $e");
-      return null;
+    if (_pickedImageBytes != null) {
+      return MemoryImage(_pickedImageBytes!);
     }
+    final currentProfilePicture = _sessionManager.currentUser?.profilePicture;
+    if (currentProfilePicture != null && currentProfilePicture.isNotEmpty) {
+      try {
+        return ImageUtils.getProfileImageProvider(currentProfilePicture);
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
   }
 
   Future<void> _saveProfile() async {
@@ -317,7 +299,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
         // Clear local image state since it's now saved
         setState(() {
-          _profileImagePath = null;
+          _pickedImageBytes = null;
           _profileImageBase64 = null;
         });
 
@@ -378,7 +360,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   title: const Text('Choose from Gallery'),
                   onTap: () => _pickImage(ImageSource.gallery),
                 ),
-                if (_profileImagePath != null ||
+                if (_pickedImageBytes != null ||
                     _sessionManager.currentUser?.profilePicture != null)
                   ListTile(
                     leading: const Icon(Icons.delete, color: Colors.red),
@@ -405,22 +387,18 @@ class _EditProfilePageState extends State<EditProfilePage> {
       );
 
       if (image != null) {
-        print("📷 Image picked: ${image.path}");
+        final bytes = await image.readAsBytes();
+        if (bytes.length > 5 * 1024 * 1024) {
+          _showErrorMessage("Image is too large. Please choose a photo under 5 MB.");
+          return;
+        }
         setState(() {
-          _profileImagePath = image.path;
-        });
-
-        // Convert to base64 for API
-        final bytes = await File(image.path).readAsBytes();
-        setState(() {
+          _pickedImageBytes = bytes;
           _profileImageBase64 = base64Encode(bytes);
         });
-
-        print("📷 Base64 length: ${_profileImageBase64?.length}");
         _showSuccessMessage("Profile picture selected!");
       }
     } catch (e) {
-      print("❌ Error selecting image: $e");
       _showErrorMessage("Error selecting image: ${e.toString()}");
     }
   }
@@ -428,7 +406,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   void _removeProfilePicture() {
     Navigator.pop(context);
     setState(() {
-      _profileImagePath = null;
+      _pickedImageBytes = null;
       _profileImageBase64 = null;
     });
     _showSuccessMessage("Profile picture removed!");

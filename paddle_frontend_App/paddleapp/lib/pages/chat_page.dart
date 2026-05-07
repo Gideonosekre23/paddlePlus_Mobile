@@ -27,14 +27,25 @@ class _ChatPageState extends State<ChatPage> {
   final ChatWebSocketService _chatService = ChatWebSocketService();
 
   final List<ChatMessage> _messages = [];
-  late StreamSubscription<ChatMessage> _messageSubscription;
-  late StreamSubscription<String> _errorSubscription;
-  late StreamSubscription<bool> _connectionSubscription;
-  late StreamSubscription<String> _tripStatusSubscription;
+  StreamSubscription<ChatMessage>? _messageSubscription;
+  StreamSubscription<String>? _errorSubscription;
+  StreamSubscription<bool>? _connectionSubscription;
+  StreamSubscription<String>? _tripStatusSubscription;
+  StreamSubscription<int>? _messagesReadSubscription;
 
   bool _isConnected = false;
   bool _isConnecting = false;
   int? _currentUserId;
+  int? _chatRoomId;
+
+  // Auto-reconnect state
+  static const List<Duration> _reconnectDelays = [
+    Duration(seconds: 1),
+    Duration(seconds: 2),
+    Duration(seconds: 5),
+  ];
+  int _reconnectAttempts = 0;
+  Timer? _reconnectTimer;
 
   @override
   void initState() {
@@ -56,10 +67,12 @@ class _ChatPageState extends State<ChatPage> {
     print('ChatPage: dispose called');
     _messageController.dispose();
     _scrollController.dispose();
-    _messageSubscription.cancel();
-    _errorSubscription.cancel();
-    _connectionSubscription.cancel();
-    _tripStatusSubscription.cancel();
+    _reconnectTimer?.cancel();
+    _messageSubscription?.cancel();
+    _errorSubscription?.cancel();
+    _connectionSubscription?.cancel();
+    _tripStatusSubscription?.cancel();
+    _messagesReadSubscription?.cancel();
     super.dispose();
   }
 
@@ -75,6 +88,9 @@ class _ChatPageState extends State<ChatPage> {
             _messages.add(message);
           });
           _scrollToBottom();
+          if (_chatRoomId != null) {
+            ChatWebSocketService.markMessagesRead(_chatRoomId!);
+          }
         }
       },
       onError: (error) {
@@ -95,7 +111,7 @@ class _ChatPageState extends State<ChatPage> {
       },
     );
 
-    // Listen to connection status
+    // Listen to connection status — auto-reconnect on drop
     _connectionSubscription = _chatService.connectionStream.listen(
       (isConnected) {
         print('ChatPage: Connection status changed: $isConnected');
@@ -104,6 +120,12 @@ class _ChatPageState extends State<ChatPage> {
             _isConnected = isConnected;
             _isConnecting = false;
           });
+          if (!isConnected) {
+            _scheduleReconnect();
+          } else {
+            _reconnectAttempts = 0;
+            _reconnectTimer?.cancel();
+          }
         }
       },
       onError: (error) {
@@ -121,6 +143,21 @@ class _ChatPageState extends State<ChatPage> {
       },
       onError: (error) {
         print('ChatPage: Trip status stream error: $error');
+      },
+    );
+
+    // Listen for real-time seen receipts
+    _messagesReadSubscription = _chatService.messagesReadStream.listen(
+      (readerId) {
+        if (mounted) {
+          setState(() {
+            for (int i = 0; i < _messages.length; i++) {
+              if (_messages[i].senderId != readerId && !_messages[i].isRead) {
+                _messages[i] = _messages[i].copyWith(isRead: true);
+              }
+            }
+          });
+        }
       },
     );
   }
@@ -185,6 +222,19 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  void _scheduleReconnect() {
+    if (_reconnectAttempts >= _reconnectDelays.length) return;
+    _reconnectTimer?.cancel();
+    final delay = _reconnectDelays[_reconnectAttempts];
+    _reconnectAttempts++;
+    print('ChatPage: Reconnecting in ${delay.inSeconds}s (attempt $_reconnectAttempts)');
+    _reconnectTimer = Timer(delay, () {
+      if (mounted && !_isConnected && !_isConnecting) {
+        _connectToChat();
+      }
+    });
+  }
+
   Future<void> _connectToChat() async {
     if (widget.tripId == null) {
       _showErrorSnackbar('No trip ID provided');
@@ -211,6 +261,28 @@ class _ChatPageState extends State<ChatPage> {
       _showErrorSnackbar('Failed to connect to chat');
     } else if (success) {
       print('ChatPage: ✅ Successfully connected to chat');
+      _loadChatRoomAndMarkRead();
+    }
+  }
+
+  Future<void> _loadChatRoomAndMarkRead() async {
+    if (widget.tripId == null) return;
+    final chatRoom = await ChatWebSocketService.getChatRoom(widget.tripId!);
+    if (chatRoom != null) {
+      _chatRoomId = chatRoom['chat_room_id'] as int?;
+      final history = chatRoom['messages'] as List<ChatMessage>? ?? [];
+      if (mounted && history.isNotEmpty) {
+        setState(() {
+          for (final msg in history) {
+            if (!_messages.any((m) => m.id == msg.id)) {
+              _messages.add(msg);
+            }
+          }
+        });
+      }
+      if (_chatRoomId != null) {
+        await ChatWebSocketService.markMessagesRead(_chatRoomId!);
+      }
     }
   }
 
@@ -350,12 +422,25 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ),
             const SizedBox(height: 4),
-            Text(
-              _formatTime(message.timestamp),
-              style: TextStyle(
-                fontSize: 10,
-                color: isMe ? Colors.white70 : Colors.grey.shade600,
-              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _formatTime(message.timestamp),
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: isMe ? Colors.white70 : Colors.grey.shade600,
+                  ),
+                ),
+                if (isMe) ...[
+                  const SizedBox(width: 4),
+                  Icon(
+                    message.isRead ? Icons.done_all : Icons.done,
+                    size: 13,
+                    color: message.isRead ? Colors.white : Colors.white54,
+                  ),
+                ],
+              ],
             ),
           ],
         ),

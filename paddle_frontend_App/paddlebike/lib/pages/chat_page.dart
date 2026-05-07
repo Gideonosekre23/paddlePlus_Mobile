@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:paddlebike/Apiendpoints/apiservices/chat_api_service.dart'; // Your service
+import 'package:paddlebike/Apiendpoints/apiservices/chat_api_service.dart';
 import 'package:paddlebike/Apiendpoints/apiservices/user_session_manager.dart';
 import 'package:paddlebike/Apiendpoints/models/chat_models.dart';
 
@@ -25,25 +25,24 @@ class _ChatPageState extends State<ChatPage> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
-  // Services - Using YOUR singleton services
+  // Services
   final UserSessionManager _sessionManager = UserSessionManager();
   final ChatWebSocketService _chatService = ChatWebSocketService();
-  final NotificationWebSocketService _notificationService =
-      NotificationWebSocketService();
 
   // Data
   final List<ChatMessage> _messages = [];
 
   // Subscriptions
-  late StreamSubscription<ChatMessage> _messageSubscription;
-  late StreamSubscription<String> _chatErrorSubscription;
-  late StreamSubscription<bool> _connectionSubscription;
-  late StreamSubscription<ChatNotification> _notificationSubscription;
-  late StreamSubscription<Map<String, dynamic>> _tripSubscription;
+  StreamSubscription<ChatMessage>? _messageSubscription;
+  StreamSubscription<String>? _chatErrorSubscription;
+  StreamSubscription<bool>? _connectionSubscription;
+  StreamSubscription<Map<String, dynamic>>? _tripSubscription;
+  StreamSubscription<int>? _messagesReadSubscription;
 
   // State
   bool _isSendingMessage = false;
   bool _tripCompleted = false;
+  int? _chatRoomId;
 
   @override
   void initState() {
@@ -62,7 +61,25 @@ class _ChatPageState extends State<ChatPage> {
     try {
       _setupSubscriptions();
       await _connectToChat();
-      await _connectToNotifications();
+      if (widget.tripId != null) {
+        final chatRoom = await ChatWebSocketService.getChatRoom(widget.tripId!);
+        if (chatRoom != null) {
+          _chatRoomId = chatRoom['chat_room_id'] as int?;
+          final history = chatRoom['messages'] as List<ChatMessage>? ?? [];
+          if (mounted && history.isNotEmpty) {
+            setState(() {
+              for (final msg in history) {
+                if (!_messages.any((m) => m.id == msg.id)) {
+                  _messages.add(msg);
+                }
+              }
+            });
+          }
+          if (_chatRoomId != null) {
+            ChatWebSocketService.markMessagesRead(_chatRoomId!);
+          }
+        }
+      }
     } catch (e) {
       print('❌ ChatPage: Initialization error: $e');
       if (mounted) {
@@ -85,6 +102,9 @@ class _ChatPageState extends State<ChatPage> {
               }
             });
             _scrollToBottom();
+            if (_chatRoomId != null) {
+              ChatWebSocketService.markMessagesRead(_chatRoomId!);
+            }
           }
         },
         onError: (error) {
@@ -120,24 +140,28 @@ class _ChatPageState extends State<ChatPage> {
         }
       });
 
-      // Listen to notifications
-      _notificationSubscription = _notificationService.notificationStream
-          .listen(
-            (notification) {
-              _handleChatNotification(notification);
-            },
-            onError: (error) {
-              print('❌ ChatPage: Notification stream error: $error');
-            },
-          );
-
-      // Listen for trip completion from main WebSocket
+      // Listen for trip completion / status updates from main WebSocket
       _tripSubscription = _sessionManager.wsMessageStream.listen(
         (message) {
           _handleWebSocketMessage(message);
         },
         onError: (error) {
           print('❌ ChatPage: Trip subscription error: $error');
+        },
+      );
+
+      // Listen for real-time seen receipts
+      _messagesReadSubscription = _chatService.messagesReadStream.listen(
+        (readerId) {
+          if (mounted) {
+            setState(() {
+              for (int i = 0; i < _messages.length; i++) {
+                if (_messages[i].senderId != readerId && !_messages[i].isRead) {
+                  _messages[i] = _messages[i].copyWith(isRead: true);
+                }
+              }
+            });
+          }
         },
       );
     } catch (e) {
@@ -165,53 +189,6 @@ class _ChatPageState extends State<ChatPage> {
       if (mounted) {
         _showErrorSnackbar('Connection error: $e');
       }
-    }
-  }
-
-  // ✅ CONNECT TO NOTIFICATIONS
-  Future<void> _connectToNotifications() async {
-    try {
-      final currentUser = _sessionManager.currentUser;
-      if (currentUser != null) {
-        final userId = _getUserId(currentUser);
-        final token = await _getNotificationToken();
-
-        if (token != null) {
-          await _notificationService.connectToNotifications(
-            userId: userId,
-            token: token,
-          );
-        }
-      }
-    } catch (e) {
-      print('❌ ChatPage: Notification connect error: $e');
-    }
-  }
-
-  // ✅ GET NOTIFICATION TOKEN
-  Future<String?> _getNotificationToken() async {
-    try {
-      // You might need to implement this based on your token structure
-      return _sessionManager.currentUser?.username; // Or access token
-    } catch (e) {
-      print('❌ ChatPage: Failed to get notification token: $e');
-      return null;
-    }
-  }
-
-  // ✅ HANDLE CHAT NOTIFICATIONS
-  void _handleChatNotification(ChatNotification notification) {
-    if (!mounted || _tripCompleted) return;
-
-    try {
-      if (notification.tripId == widget.tripId) {
-        // This is a notification for our current chat
-        if (notification.type == 'trip_completed') {
-          _handleTripCompletion();
-        }
-      }
-    } catch (e) {
-      print('❌ ChatPage: Chat notification handling error: $e');
     }
   }
 
@@ -355,15 +332,12 @@ class _ChatPageState extends State<ChatPage> {
     try {
       _messageController.dispose();
       _scrollController.dispose();
-      _messageSubscription.cancel();
-      _chatErrorSubscription.cancel();
-      _connectionSubscription.cancel();
-      _notificationSubscription.cancel();
-      _tripSubscription.cancel();
-
-      // Your services handle their own cleanup
+      _messageSubscription?.cancel();
+      _chatErrorSubscription?.cancel();
+      _connectionSubscription?.cancel();
+      _tripSubscription?.cancel();
+      _messagesReadSubscription?.cancel();
       _chatService.disconnect();
-      _notificationService.disconnect();
     } catch (e) {
       print('❌ ChatPage: Cleanup error: $e');
     }
@@ -878,7 +852,7 @@ class _ChatPageState extends State<ChatPage> {
           children: [
             Text(
               widget.tripId != null
-                  ? 'Trip Chat (${widget.tripId!.substring(0, 8)}...)'
+                  ? 'Trip Chat (${widget.tripId!.length > 8 ? widget.tripId!.substring(0, 8) : widget.tripId}...)'
                   : 'Trip Chat',
               style: const TextStyle(
                 color: Colors.white,

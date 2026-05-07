@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
@@ -26,6 +27,11 @@ class UserSessionManager extends ChangeNotifier with WidgetsBindingObserver {
   bool _isMainWSConnected = false;
   bool _isMainWSConnecting = false;
 
+  Timer? _reconnectTimer;
+  int _reconnectAttempts = 0;
+  static const int _maxReconnectAttempts = 5;
+  static const List<int> _reconnectDelays = [2, 5, 10, 30, 60];
+
   // Stream controller for broadcasting WebSocket messages
   final StreamController<Map<String, dynamic>> _wsMessageController =
       StreamController<Map<String, dynamic>>.broadcast();
@@ -37,6 +43,10 @@ class UserSessionManager extends ChangeNotifier with WidgetsBindingObserver {
   static final UserSessionManager _instance = UserSessionManager._internal();
   factory UserSessionManager() => _instance;
   UserSessionManager._internal();
+
+  void _log(String message) {
+    if (kDebugMode) debugPrint('[SessionManager] $message');
+  }
 
   // --- Getters ---
   User? get currentUser => _currentUser;
@@ -50,22 +60,22 @@ class UserSessionManager extends ChangeNotifier with WidgetsBindingObserver {
   // --- App Context Management ---
   void setAppContext(BuildContext context) {
     _appContext = context;
-    print("📱 UserSessionManager: App context set for notifications");
+    _log("📱 UserSessionManager: App context set for notifications");
   }
 
   // --- Initialization and Lifecycle ---
   void initObserver() {
     WidgetsBinding.instance.addObserver(this);
-    print("UserSessionManager: WidgetsBindingObserver added.");
+    _log("UserSessionManager: WidgetsBindingObserver added.");
   }
 
   void initializeNotificationHandler() {
-    print("🔔 UserSessionManager: Notification handler ready");
+    _log("🔔 UserSessionManager: Notification handler ready");
   }
 
   @override
   void dispose() {
-    print("UserSessionManager: dispose() called.");
+    _cancelReconnectTimer();
     WidgetsBinding.instance.removeObserver(this);
     disconnectMainWebSocket();
     disconnectVerificationWebSocket();
@@ -80,7 +90,7 @@ class UserSessionManager extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    print("UserSessionManager: AppLifecycleState changed to $state");
+    _log("UserSessionManager: AppLifecycleState changed to $state");
     if (state == AppLifecycleState.resumed) {
       _attemptReconnectWebSockets();
     }
@@ -88,7 +98,7 @@ class UserSessionManager extends ChangeNotifier with WidgetsBindingObserver {
 
   // --- Session Management ---
   Future<void> loadSession() async {
-    print("UserSessionManager: Loading session...");
+    _log("UserSessionManager: Loading session...");
     final accessToken = await TokenStorageService.getAccessToken();
     final refreshToken = await TokenStorageService.getRefreshToken();
     final userJson = await UserStorageService.getUserJson();
@@ -101,20 +111,20 @@ class UserSessionManager extends ChangeNotifier with WidgetsBindingObserver {
 
         final validSession = await AuthApiService.isAuthenticated();
         if (validSession) {
-          print("UserSessionManager: Session is valid with backend.");
+          _log("UserSessionManager: Session is valid with backend.");
           _mainWsRelativePath = await UserStorageService.getMainWebSocketPath();
           _chatWsRelativePath = await UserStorageService.getChatWebSocketPath();
           _attemptReconnectWebSockets();
         } else {
-          print("UserSessionManager: Session invalid. Logging out.");
+          _log("UserSessionManager: Session invalid. Logging out.");
           await logout(notifyApi: false);
         }
       } catch (e) {
-        print("UserSessionManager: Error loading session: $e. Logging out.");
+        _log("UserSessionManager: Error loading session: $e. Logging out.");
         await logout(notifyApi: false);
       }
     } else {
-      print("UserSessionManager: No stored session found.");
+      _log("UserSessionManager: No stored session found.");
       _currentUser = null;
       _isAuthenticated = false;
       _isVerified = false;
@@ -123,7 +133,7 @@ class UserSessionManager extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> completeLogin(LoginResponse loginData) async {
-    print("UserSessionManager: Completing login...");
+    _log("UserSessionManager: Completing login...");
     await TokenStorageService.saveTokens(
       loginData.accessToken,
       loginData.refreshToken,
@@ -149,13 +159,13 @@ class UserSessionManager extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     notifyListeners();
-    print(
+    _log(
       "UserSessionManager: Login completed. MainWS connected: $_isMainWSConnected",
     );
   }
 
   Future<void> logout({bool notifyApi = true}) async {
-    print("UserSessionManager: Logging out...");
+    _log("UserSessionManager: Logging out...");
     if (notifyApi && _isAuthenticated) {
       final refreshTokenVal = await TokenStorageService.getRefreshToken();
       if (refreshTokenVal != null) {
@@ -175,7 +185,7 @@ class UserSessionManager extends ChangeNotifier with WidgetsBindingObserver {
     _isVerified = false;
 
     notifyListeners();
-    print("UserSessionManager: Logout complete.");
+    _log("UserSessionManager: Logout complete.");
   }
 
   // --- WebSocket Management ---
@@ -185,7 +195,7 @@ class UserSessionManager extends ChangeNotifier with WidgetsBindingObserver {
   }) async {
     if (isMainSocket) {
       if (_isMainWSConnecting || _isMainWSConnected) {
-        print(
+        _log(
           "UserSessionManager: Main WebSocket already connecting/connected.",
         );
         return;
@@ -204,12 +214,17 @@ class UserSessionManager extends ChangeNotifier with WidgetsBindingObserver {
           parsedHttpBaseUrl.port != 443) {
         wsHostPort += ':${parsedHttpBaseUrl.port}';
       }
-      String pathSegment = relativePath.startsWith('/')
-          ? relativePath
-          : '/$relativePath';
-      String fullWsUrl = '$wsScheme://$wsHostPort$pathSegment';
+      String fullWsUrl;
+      if (relativePath.startsWith('ws://') || relativePath.startsWith('wss://')) {
+        fullWsUrl = relativePath;
+      } else {
+        String pathSegment = relativePath.startsWith('/')
+            ? relativePath
+            : '/$relativePath';
+        fullWsUrl = '$wsScheme://$wsHostPort$pathSegment';
+      }
 
-      print("UserSessionManager: Connecting to WebSocket: $fullWsUrl");
+      _log("Connecting to main WebSocket (isMain: $isMainSocket)");
 
       if (isMainSocket) {
         disconnectMainWebSocket();
@@ -217,31 +232,35 @@ class UserSessionManager extends ChangeNotifier with WidgetsBindingObserver {
         _mainWsSubscription = _mainWebSocket!.stream.listen(
           (msg) => _handleIncomingNotification(msg, isMainSocket: true),
           onDone: () {
-            print('UserSessionManager: Main WS disconnected.');
+            _log('Main WS disconnected (onDone)');
             _isMainWSConnected = false;
             _isMainWSConnecting = false;
             _mainWebSocket = null;
             _mainWsSubscription = null;
             notifyListeners();
+            _scheduleReconnect();
           },
           onError: (err) {
-            print('UserSessionManager: Main WS error: $err');
+            _log('Main WS error: $err');
             _isMainWSConnected = false;
             _isMainWSConnecting = false;
             _mainWebSocket = null;
             _mainWsSubscription = null;
             notifyListeners();
+            _scheduleReconnect();
           },
           cancelOnError: false,
         );
         _isMainWSConnected = true;
         _isMainWSConnecting = false;
-        print('UserSessionManager: Main WS connected successfully.');
+        _reconnectAttempts = 0;
+        _cancelReconnectTimer();
+        _log('Main WS connected successfully.');
       }
 
       notifyListeners();
     } catch (e) {
-      print("UserSessionManager: Error connecting WebSocket: $e");
+      _log("UserSessionManager: Error connecting WebSocket: $e");
       if (isMainSocket) {
         _isMainWSConnected = false;
         _isMainWSConnecting = false;
@@ -251,12 +270,14 @@ class UserSessionManager extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void disconnectMainWebSocket() {
+    _cancelReconnectTimer();
+    _reconnectAttempts = 0;
     if (_mainWebSocket == null && _mainWsSubscription == null) return;
 
-    print("UserSessionManager: Disconnecting Main WebSocket...");
+    _log("Disconnecting Main WebSocket...");
     _mainWsSubscription?.cancel();
     _mainWebSocket?.sink.close().catchError((e) {
-      print("UserSessionManager: Error closing main WebSocket: $e");
+      _log("UserSessionManager: Error closing main WebSocket: $e");
     });
     _mainWebSocket = null;
     _mainWsSubscription = null;
@@ -274,16 +295,16 @@ class UserSessionManager extends ChangeNotifier with WidgetsBindingObserver {
     dynamic message, {
     required bool isMainSocket,
   }) {
-    print("🔍 DEBUG: Incoming notification");
-    print("🔍 Current user: ${_currentUser?.username}");
-    print("🔍 Message data: $message");
+    _log("🔍 DEBUG: Incoming notification");
+    _log("🔍 Current user: ${_currentUser?.username}");
+    _log("🔍 Message data: $message");
 
-    print("UserSessionManager: Handling WS message: $message");
+    _log("UserSessionManager: Handling WS message: $message");
     try {
       final decodedMessage = jsonDecode(message as String);
 
       if (decodedMessage == null || decodedMessage is! Map<String, dynamic>) {
-        print("UserSessionManager: Invalid message format.");
+        _log("UserSessionManager: Invalid message format.");
         return;
       }
 
@@ -295,29 +316,29 @@ class UserSessionManager extends ChangeNotifier with WidgetsBindingObserver {
             messageData['target_owner_username'];
         final String? currentUsername = _currentUser?.username;
 
-        print("🔍 Target owner: $targetOwnerUsername");
-        print("🔍 Current user: $currentUsername");
+        _log("🔍 Target owner: $targetOwnerUsername");
+        _log("🔍 Current user: $currentUsername");
 
         if (targetOwnerUsername != null &&
             targetOwnerUsername != currentUsername) {
-          print(
+          _log(
             "❌ NOTIFICATION MISMATCH! This notification is not for current user",
           );
           return; // Don't show notification
         }
 
         if (messageType == null) {
-          print("UserSessionManager: Message missing 'type' field.");
+          _log("UserSessionManager: Message missing 'type' field.");
           return;
         }
 
-        print("UserSessionManager: Message type: $messageType");
+        _log("UserSessionManager: Message type: $messageType");
 
         // 🚀 NEW: Handle EARNINGS UPDATES
         final String? notificationType =
             messageData['notification_type'] as String?;
         if (notificationType == 'earnings_updated') {
-          print("💰 UserSessionManager: EARNINGS UPDATE received!");
+          _log("💰 UserSessionManager: EARNINGS UPDATE received!");
           _handleEarningsUpdate(messageData);
           return; // Don't process as regular notification
         }
@@ -327,13 +348,13 @@ class UserSessionManager extends ChangeNotifier with WidgetsBindingObserver {
             messageData != null &&
             _appContext != null) {
           // Handle RIDE REQUEST notifications
-          final bool paymentCompleted =
-              messageData['payment_completed'] as bool? ?? false;
           final String? tempRequestId =
               messageData['temp_request_id'] as String?;
+          final String? notifType =
+              messageData['notification_type'] as String?;
 
-          if (paymentCompleted && tempRequestId != null) {
-            print("🔔 UserSessionManager: RIDE REQUEST - Showing card!");
+          if (tempRequestId != null && notifType == 'ride_request') {
+            _log("🔔 UserSessionManager: RIDE REQUEST - Showing card!");
             GlobalNotificationOverlay().showRideRequestCard(
               _appContext!,
               messageData,
@@ -344,7 +365,7 @@ class UserSessionManager extends ChangeNotifier with WidgetsBindingObserver {
           // Handle RIDE CANCELLATION notifications
           final String? action = messageData['action'] as String?;
           if (action == 'cancelled_by_rider') {
-            print("🔔 UserSessionManager: RIDE CANCELLED - Showing card!");
+            _log("🔔 UserSessionManager: RIDE CANCELLED - Showing card!");
             GlobalNotificationOverlay().showRideCancelledCard(
               _appContext!,
               messageData,
@@ -359,47 +380,97 @@ class UserSessionManager extends ChangeNotifier with WidgetsBindingObserver {
         }
       }
     } catch (e, stackTrace) {
-      print("UserSessionManager: Error handling message: $e");
-      print("UserSessionManager: StackTrace: $stackTrace");
+      _log("UserSessionManager: Error handling message: $e");
+      _log("UserSessionManager: StackTrace: $stackTrace");
     }
   }
 
-  // 🚀 NEW: Add this method
   Future<void> _handleEarningsUpdate(Map<String, dynamic> messageData) async {
     try {
-      final double? newTotalEarnings =
-          messageData['new_total_earnings'] as double?;
-      final double? tripEarnings = messageData['trip_earnings'] as double?;
+      // Parse earnings — the WS message may send them as int or double.
+      final rawEarnings = messageData['new_total_earnings'];
+      final double? newTotalEarnings = rawEarnings is num ? rawEarnings.toDouble() : null;
+      final rawTrip = messageData['trip_earnings'];
+      final double? tripEarnings = rawTrip is num ? rawTrip.toDouble() : null;
 
-      if (newTotalEarnings != null && _currentUser != null) {
-        print(
-          "💰 Updating earnings: ${_currentUser!.total_earnings} → $newTotalEarnings",
-        );
-        print(
-          "💰 Trip earnings: +€${tripEarnings?.toStringAsFixed(2) ?? '0.00'}",
-        );
+      if (newTotalEarnings == null || _currentUser == null) {
+        _log("Earnings update: missing data, ignoring");
+        return;
+      }
 
-        // Create updated user with new earnings
-        final updatedUser = User(
-          id: _currentUser!.id,
-          username: _currentUser!.username,
-          email: _currentUser!.email,
-          phoneNumber: _currentUser!.phoneNumber,
-          profilePicture: _currentUser!.profilePicture,
-          address: _currentUser!.address,
-          verificationStatus: _currentUser!.verificationStatus,
-          total_earnings: newTotalEarnings,
-        );
+      // Sanity-check: earnings must not decrease or jump by more than $10,000
+      final current = _currentUser!.total_earnings ?? 0.0;
+      if (newTotalEarnings < 0 || newTotalEarnings - current > 10000) {
+        _log("Earnings update rejected: suspicious value $newTotalEarnings (current $current)");
+        // Verify from backend rather than applying the potentially spoofed value
+        await _refreshEarningsFromBackend();
+        return;
+      }
 
-        // Update session and save to storage
-        await updateUser(updatedUser);
+      _log("Earnings update: $current → $newTotalEarnings (trip: +${tripEarnings?.toStringAsFixed(2) ?? '?'})");
 
-        print("✅ UserSessionManager: Earnings updated successfully!");
-      } else {
-        print("❌ UserSessionManager: Invalid earnings data received");
+      final updatedUser = User(
+        id: _currentUser!.id,
+        username: _currentUser!.username,
+        email: _currentUser!.email,
+        phoneNumber: _currentUser!.phoneNumber,
+        profilePicture: _currentUser!.profilePicture,
+        address: _currentUser!.address,
+        verificationStatus: _currentUser!.verificationStatus,
+        total_earnings: newTotalEarnings,
+      );
+
+      await updateUser(updatedUser);
+    } catch (e) {
+      _log("Error handling earnings update: $e");
+    }
+  }
+
+  Future<void> _checkMissedRideRequests() async {
+    if (_appContext == null) return;
+    try {
+      final response = await AuthApiService.getPendingRideRequests();
+      if (response.success && response.data != null) {
+        final List<dynamic> pending =
+            response.data!['pending_requests'] as List<dynamic>? ?? [];
+        for (final req in pending) {
+          final data = req as Map<String, dynamic>;
+          if (data['temp_request_id'] != null) {
+            GlobalNotificationOverlay().showRideRequestCard(_appContext!, data);
+          }
+        }
       }
     } catch (e) {
-      print("❌ UserSessionManager: Error handling earnings update: $e");
+      _log('_checkMissedRideRequests error: $e');
+    }
+  }
+
+  Future<void> _refreshEarningsFromBackend() async {
+    try {
+      final response = await BaseApiService.get<Map<String, dynamic>>(
+        '/owner/profile/',
+        fromJson: (json) => json,
+      );
+      if (response.success && response.data != null && _currentUser != null) {
+        final raw = response.data!['total_earnings'];
+        final double? verified = raw is num ? raw.toDouble() : null;
+        if (verified != null) {
+          final updatedUser = User(
+            id: _currentUser!.id,
+            username: _currentUser!.username,
+            email: _currentUser!.email,
+            phoneNumber: _currentUser!.phoneNumber,
+            profilePicture: _currentUser!.profilePicture,
+            address: _currentUser!.address,
+            verificationStatus: _currentUser!.verificationStatus,
+            total_earnings: verified,
+          );
+          await updateUser(updatedUser);
+          _log("Earnings verified from backend: $verified");
+        }
+      }
+    } catch (e) {
+      _log("Could not verify earnings from backend: $e");
     }
   }
 
@@ -429,33 +500,31 @@ class UserSessionManager extends ChangeNotifier with WidgetsBindingObserver {
         fullWsUrl = '$wsScheme://$wsHostPort$pathSegment';
       }
 
-      print(
-        "UserSessionManager: Connecting to Verification WebSocket: $fullWsUrl",
-      );
+      _log("Connecting to Verification WebSocket");
       _verificationWebSocket = WebSocketChannel.connect(Uri.parse(fullWsUrl));
       _verificationWsSubscription = _verificationWebSocket!.stream.listen(
         (msg) => _handleStripeVerificationMessage(msg),
         onDone: () {
-          print('UserSessionManager: Verification WS disconnected.');
+          _log('UserSessionManager: Verification WS disconnected.');
           _verificationWebSocket = null;
           _verificationWsSubscription = null;
         },
         onError: (err) {
-          print('UserSessionManager: Verification WS error: $err');
+          _log('UserSessionManager: Verification WS error: $err');
           _verificationWebSocket = null;
           _verificationWsSubscription = null;
         },
         cancelOnError: true,
       );
     } catch (e) {
-      print("UserSessionManager: Error connecting Verification WebSocket: $e");
+      _log("UserSessionManager: Error connecting Verification WebSocket: $e");
       _verificationWebSocket = null;
       _verificationWsSubscription = null;
     }
   }
 
   void _handleStripeVerificationMessage(dynamic message) {
-    print("UserSessionManager: Stripe Verification Message: $message");
+    _log("UserSessionManager: Stripe Verification Message: $message");
     try {
       final decodedMessage = jsonDecode(message as String);
       final verificationMsg = VerificationCompleteMessage.fromJson(
@@ -465,32 +534,32 @@ class UserSessionManager extends ChangeNotifier with WidgetsBindingObserver {
       if (verificationMsg.type == 'verification_complete') {
         if (verificationMsg.status == 'verified' &&
             verificationMsg.user != null) {
-          print("UserSessionManager: Stripe verification successful.");
+          _log("UserSessionManager: Stripe verification successful.");
           _handleStripeVerificationSuccess(verificationMsg.user!);
         } else {
-          print(
+          _log(
             "UserSessionManager: Stripe verification failed: ${verificationMsg.message}",
           );
         }
         disconnectVerificationWebSocket();
       } else if (verificationMsg.type == 'status_update') {
-        print(
+        _log(
           "UserSessionManager: Verification status: ${verificationMsg.status} - ${verificationMsg.message}",
         );
       } else {
-        print(
+        _log(
           "UserSessionManager: Unknown verification message type: ${verificationMsg.type}",
         );
       }
     } catch (e) {
-      print("UserSessionManager: Error decoding verification message: $e");
+      _log("UserSessionManager: Error decoding verification message: $e");
     }
   }
 
   Future<void> _handleStripeVerificationSuccess(
     VerifiedUserData verifiedUserData,
   ) async {
-    print("UserSessionManager: Updating session with verified user data...");
+    _log("UserSessionManager: Updating session with verified user data...");
 
     await TokenStorageService.saveTokens(
       verifiedUserData.accessToken,
@@ -531,7 +600,7 @@ class UserSessionManager extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     notifyListeners();
-    print("UserSessionManager: Verification success handling complete.");
+    _log("UserSessionManager: Verification success handling complete.");
   }
 
   void disconnectVerificationWebSocket() {
@@ -539,50 +608,93 @@ class UserSessionManager extends ChangeNotifier with WidgetsBindingObserver {
       return;
     }
 
-    print("UserSessionManager: Disconnecting Verification WebSocket...");
+    _log("UserSessionManager: Disconnecting Verification WebSocket...");
     _verificationWsSubscription?.cancel();
     _verificationWebSocket?.sink.close().catchError((e) {
-      print("UserSessionManager: Error closing verification WebSocket: $e");
+      _log("UserSessionManager: Error closing verification WebSocket: $e");
     });
     _verificationWebSocket = null;
     _verificationWsSubscription = null;
   }
 
+  void _scheduleReconnect() {
+    if (!_isAuthenticated || _mainWsRelativePath == null) return;
+    if (_reconnectAttempts >= _maxReconnectAttempts) {
+      _log('Max reconnect attempts reached, giving up');
+      _reconnectAttempts = 0;
+      return;
+    }
+    final delayIndex = _reconnectAttempts.clamp(0, _reconnectDelays.length - 1);
+    final delay = _reconnectDelays[delayIndex];
+    _reconnectAttempts++;
+    _log('Scheduling reconnect in ${delay}s (attempt $_reconnectAttempts)');
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(Duration(seconds: delay), () {
+      _attemptReconnectWebSockets();
+    });
+  }
+
+  void _cancelReconnectTimer() {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+  }
+
   // --- Reconnection Logic ---
   Future<void> _attemptReconnectWebSockets() async {
-    print("UserSessionManager: Attempting to reconnect WebSockets...");
+    _log("UserSessionManager: Attempting to reconnect WebSockets...");
     if (_isAuthenticated &&
         _mainWsRelativePath != null &&
         _mainWsRelativePath!.isNotEmpty) {
       if (!_isMainWSConnected && !_isMainWSConnecting) {
-        print("UserSessionManager: Reconnecting main WebSocket...");
+        _log("UserSessionManager: Reconnecting main WebSocket...");
+        // Refresh JWT before reconnecting — stored path contains the old token
+        await BaseApiService.refreshToken();
+        final freshToken = await TokenStorageService.getAccessToken();
+        if (freshToken != null) {
+          _mainWsRelativePath = _injectTokenIntoWsUrl(_mainWsRelativePath!, freshToken);
+          await UserStorageService.saveWebSocketPaths(_mainWsRelativePath!, _chatWsRelativePath);
+        }
         await _connectWebSocketUsingRelativePath(
           _mainWsRelativePath!,
           isMainSocket: true,
         );
+        // After reconnecting, surface any ride requests that arrived while offline
+        _checkMissedRideRequests();
       } else {
-        print(
+        _log(
           "UserSessionManager: Main WebSocket already connected/connecting.",
         );
       }
     } else {
-      print(
+      _log(
         "UserSessionManager: Cannot reconnect - not authenticated or no path.",
       );
     }
   }
 
+  String _injectTokenIntoWsUrl(String wsUrl, String freshToken) {
+    try {
+      final uri = Uri.parse(wsUrl);
+      final updated = uri.replace(
+        queryParameters: Map.from(uri.queryParameters)..['token'] = freshToken,
+      );
+      return updated.toString();
+    } catch (_) {
+      return wsUrl;
+    }
+  }
+
   // --- Token Management ---
   Future<bool> refreshSessionTokens() async {
-    print("UserSessionManager: Refreshing session tokens...");
+    _log("UserSessionManager: Refreshing session tokens...");
     final success = await BaseApiService.refreshToken();
     if (success) {
-      print("UserSessionManager: Token refresh successful.");
+      _log("UserSessionManager: Token refresh successful.");
       _isAuthenticated = true;
       notifyListeners();
       return true;
     } else {
-      print("UserSessionManager: Token refresh failed. Logging out.");
+      _log("UserSessionManager: Token refresh failed. Logging out.");
       await logout(notifyApi: false);
       return false;
     }
@@ -598,21 +710,21 @@ class UserSessionManager extends ChangeNotifier with WidgetsBindingObserver {
     String? newAccessToken,
     String? newRefreshToken,
   }) async {
-    print("UserSessionManager: Updating user data...");
+    _log("UserSessionManager: Updating user data...");
     _currentUser = newUserData;
     _isVerified = _currentUser?.verificationStatus == 'verified';
     await UserStorageService.saveUserJson(jsonEncode(_currentUser!.toJson()));
 
     if (newAccessToken != null && newRefreshToken != null) {
       await TokenStorageService.saveTokens(newAccessToken, newRefreshToken);
-      print("UserSessionManager: New tokens saved.");
+      _log("UserSessionManager: New tokens saved.");
     }
     notifyListeners();
   }
 
   // --- Public Utility Methods ---
   Future<bool> attemptReconnectMainWebSocket() async {
-    print("UserSessionManager: Public reconnect request...");
+    _log("UserSessionManager: Public reconnect request...");
     if (_isAuthenticated &&
         _mainWsRelativePath != null &&
         _mainWsRelativePath!.isNotEmpty) {
@@ -625,7 +737,7 @@ class UserSessionManager extends ChangeNotifier with WidgetsBindingObserver {
       }
       return _isMainWSConnected;
     }
-    print(
+    _log(
       "UserSessionManager: Cannot reconnect - not authenticated or no path.",
     );
     return false;

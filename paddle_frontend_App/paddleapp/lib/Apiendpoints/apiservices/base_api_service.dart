@@ -19,10 +19,10 @@ class BaseApiService {
         print("Using debug web fallback URL: http://localhost:8000");
         return 'http://localhost:8000';
       } else if (Platform.isAndroid) {
-        // Physical device on same LAN — uses PC's local IP.
-        // Override with --dart-define=API_BASE_URL=http://<ip>:8000 if your IP changes.
-        print("Using debug Android fallback URL: http://192.168.1.7:8000");
-        return 'http://192.168.1.7:8000';
+        // 10.0.2.2 reaches the host machine from the Android emulator.
+        // For a physical device on LAN, pass --dart-define=API_BASE_URL=http://<your-ip>:8000
+        assert(() { debugPrint("Using debug Android fallback URL: http://10.0.2.2:8000"); return true; }());
+        return 'http://10.0.2.2:8000';
       } else if (Platform.isIOS || Platform.isMacOS) {
         print("Using debug iOS/macOS fallback URL: http://localhost:8000");
         return 'http://localhost:8000';
@@ -296,6 +296,41 @@ class BaseApiService {
     }
   }
 
+  /// Performs a multipart HTTP request (PUT or PATCH) for file uploads.
+  static Future<ApiResponse<T>> patchMultipart<T>(
+    String endpoint, {
+    required Map<String, String> fields,
+    Map<String, String>? filePaths,
+    bool auth = true,
+    T Function(Map<String, dynamic>)? fromJson,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl$endpoint');
+      final request = http.MultipartRequest('PATCH', uri);
+
+      if (auth) {
+        final token = await TokenStorageService.getAccessToken();
+        if (token != null) {
+          request.headers['Authorization'] = 'Bearer $token';
+        }
+      }
+
+      request.fields.addAll(fields);
+
+      if (filePaths != null) {
+        for (final entry in filePaths.entries) {
+          request.files.add(await http.MultipartFile.fromPath(entry.key, entry.value));
+        }
+      }
+
+      final streamedResponse = await _client.send(request).timeout(_timeout);
+      final response = await http.Response.fromStream(streamedResponse);
+      return _handleResponse<T>(response, fromJson);
+    } catch (e) {
+      return _handleError<T>(e);
+    }
+  }
+
   /// Performs an HTTP DELETE request.
   static Future<ApiResponse<T>> delete<T>(
     String endpoint, {
@@ -363,16 +398,14 @@ class BaseApiService {
     var response = await request();
 
     if (!response.success && response.statusCode == 401) {
-      // Attempt to refresh the token
       final refreshed = await refreshToken();
 
       if (refreshed) {
-        // If token refreshed successfully, retry the original request
-        // This second response is the one we should return
         response = await request();
-        // Now 'response' holds the result of the successful retry (or whatever the second attempt yielded)
+      } else {
+        // Refresh failed — clear tokens so the app routes back to login
+        await TokenStorageService.clearTokens();
       }
-      // If refresh failed, 'response' still holds the original 401 error response
     }
 
     return response;

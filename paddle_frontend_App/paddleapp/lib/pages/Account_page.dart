@@ -7,6 +7,8 @@ import 'package:paddleapp/pages/Settings_page.dart';
 import 'package:paddleapp/pages/login_page.dart';
 import 'package:paddleapp/pages/Accountdetail_page.dart';
 import 'package:paddleapp/Apiendpoints/apiservices/Image_utils.dart';
+import 'package:paddleapp/pages/payment_setup_page.dart';
+import 'package:paddleapp/pages/notification_history_page.dart';
 
 class Account_page extends StatefulWidget {
   final User user;
@@ -26,16 +28,27 @@ class _Account_pageState extends State<Account_page> {
   @override
   void initState() {
     super.initState();
-
     _currentUser = _sessionManager.currentUser ?? widget.user;
-
     _sessionManager.addListener(_onSessionChanged);
+    NotificationStore.instance.addListener(_onNotifChanged);
+    _refreshUser();
+  }
+
+  void _onNotifChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _refreshUser() async {
+    final resp = await AuthApiService.getProfile();
+    if (resp.success && resp.data != null && mounted) {
+      await _sessionManager.updateUser(resp.data!);
+    }
   }
 
   @override
   void dispose() {
-    // ✅ Remove listener
     _sessionManager.removeListener(_onSessionChanged);
+    NotificationStore.instance.removeListener(_onNotifChanged);
     super.dispose();
   }
 
@@ -110,6 +123,35 @@ class _Account_pageState extends State<Account_page> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.notifications_outlined, color: Colors.white),
+                if (NotificationStore.instance.unreadCount > 0)
+                  Positioned(
+                    top: -4,
+                    right: -4,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                      constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
+                      child: Text(
+                        NotificationStore.instance.unreadCount > 9
+                            ? '9+'
+                            : '${NotificationStore.instance.unreadCount}',
+                        style: const TextStyle(color: Colors.white, fontSize: 9),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const NotificationHistoryPage()),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: ImageUtils.buildAvatar(
@@ -213,19 +255,10 @@ class _Account_pageState extends State<Account_page> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
                 ),
                 onTap: () {
-                  showDialog(
-                    context: context,
-                    builder: (_) => AlertDialog(
-                      title: const Text('Payment Methods'),
-                      content: const Text(
-                        'Payment method management is coming soon. Payments are processed securely via Stripe during ride booking.',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('OK'),
-                        ),
-                      ],
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const PaymentSetupPage(),
                     ),
                   );
                 },

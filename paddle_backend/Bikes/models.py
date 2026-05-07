@@ -14,11 +14,29 @@ class BikeHardware(models.Model):
     latitude = models.FloatField(null=True)
     longitude = models.FloatField(null=True)
 
+    def _totp_secret(self):
+        # SECURITY NOTE: This uses an HMAC-SHA256 of the factory key and serial number,
+        # base32-encoded so pyotp can consume it. This is more secure than plain
+        # concatenation and avoids base32-decode errors from arbitrary characters.
+        # WARNING: Changing this algorithm requires re-provisioning all deployed hardware.
+        import hmac as _hmac, hashlib as _hashlib, base64 as _b64
+        raw = _hmac.new(
+            (self.factory_key or '').encode(),
+            (self.serial_number or '').encode(),
+            _hashlib.sha256,
+        ).digest()
+        return _b64.b32encode(raw).decode('ascii')
+
     def generate_unlock_code(self):
         current_time = int(timezone.now().timestamp())
-        secret = f"{self.serial_number}{self.factory_key}"
-        totp = pyotp.TOTP(secret, interval=30)
+        totp = pyotp.TOTP(self._totp_secret(), interval=300)
         return totp.at(current_time)
+
+    def verify_unlock_code(self, code):
+        if not code:
+            return False
+        totp = pyotp.TOTP(self._totp_secret(), interval=300)
+        return totp.verify(str(code), valid_window=1)
 
     def update_status(self, battery_level=None):
         self.last_ping = timezone.now()
@@ -67,7 +85,11 @@ class Bikes(models.Model):
     total_trips = models.PositiveIntegerField(default=0)
     total_distance = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     rating = models.DecimalField(max_digits=3, decimal_places=2, default=5.00)
+    rating_count = models.PositiveIntegerField(default=0)
     
+    bike_address = models.CharField(max_length=255, blank=True, null=True)
+    bike_image = models.ImageField(upload_to='bike_images/', null=True, blank=True, help_text='Upload an image of the bike')
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -131,7 +153,7 @@ class Bikes(models.Model):
         if self.hardware:
             return {
                 'status': self.hardware_status,
-                'battery': self.hardware.battery_battery_level,
+                'battery': self.hardware.battery_level,
                 'last_unlock': self.last_unlock_time,
                 'last_lock': self.last_lock_time,
                 'last_ping': self.hardware.last_ping,

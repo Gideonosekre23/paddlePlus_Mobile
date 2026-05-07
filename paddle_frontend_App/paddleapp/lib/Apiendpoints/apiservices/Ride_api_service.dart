@@ -1,5 +1,6 @@
 import '../models/api_response.dart';
 import '../models/Ride_models.dart';
+import '../models/auth_models.dart';
 import 'base_api_service.dart';
 
 class RideApiService {
@@ -139,12 +140,43 @@ class RideApiService {
   }
 
   /// Confirm the bike is unlocked and transition trip to on-trip state.
+  /// [unlockCode] must match the current TOTP code shown to the rider.
   /// Corresponds to POST /trip/begin/<trip_id>/
-  static Future<ApiResponse<BeginTripResponse>> beginTrip(String tripId) {
+  static Future<ApiResponse<BeginTripResponse>> beginTrip(
+    String tripId, {
+    required String unlockCode,
+  }) {
     return BaseApiService.requestWithRetry(() async {
       return BaseApiService.post<BeginTripResponse>(
         '$_tripBasePath/begin/$tripId/',
+        body: {'unlock_code': unlockCode},
         fromJson: BeginTripResponse.fromJson,
+        auth: true,
+      );
+    });
+  }
+
+  /// Request a fresh unlock code for a bike on an active trip.
+  /// Corresponds to GET /bikes/unlock/<bike_id>/
+  static Future<ApiResponse<Map<String, dynamic>>> getBikeUnlockCode(
+    String bikeId,
+  ) {
+    return BaseApiService.requestWithRetry(() async {
+      return BaseApiService.get<Map<String, dynamic>>(
+        '$_bikesBasePath/unlock/$bikeId/',
+        fromJson: (json) => json,
+        auth: true,
+      );
+    });
+  }
+
+  /// Lock a bike after trip ends.
+  /// Corresponds to POST /bikes/lock/<bike_id>/
+  static Future<ApiResponse<Map<String, dynamic>>> lockBike(String bikeId) {
+    return BaseApiService.requestWithRetry(() async {
+      return BaseApiService.post<Map<String, dynamic>>(
+        '$_bikesBasePath/lock/$bikeId/',
+        fromJson: (json) => json,
         auth: true,
       );
     });
@@ -171,15 +203,12 @@ class RideApiService {
   static Future<ApiResponse<List<NearbyBike>>> getNearbyBikes({
     required double latitude,
     required double longitude,
-    double? radius,
-  }) async {
+  }) {
+    return BaseApiService.requestWithRetry(() async {
     final Map<String, String> params = {
       'latitude': latitude.toString(),
       'longitude': longitude.toString(),
     };
-    if (radius != null) {
-      params['radius'] = radius.toString();
-    }
 
     final apiResponse = await BaseApiService.get<List<dynamic>>(
       // Expecting List<dynamic>
@@ -257,5 +286,20 @@ class RideApiService {
         statusCode: apiResponse.statusCode,
       );
     }
+    }); // end requestWithRetry
   }
+
+  static Future<ApiResponse<MessageResponse>> reportTrip(
+    int tripId, {
+    required String category,
+    String? details,
+  }) =>
+      BaseApiService.requestWithRetry(
+        () => BaseApiService.post<MessageResponse>(
+          '$_tripBasePath/$tripId/report/',
+          body: {'category': category, 'details': details ?? ''},
+          fromJson: MessageResponse.fromJson,
+          auth: true,
+        ),
+      );
 }

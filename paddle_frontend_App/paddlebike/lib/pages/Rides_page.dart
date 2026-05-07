@@ -3,6 +3,28 @@ import 'package:intl/intl.dart';
 import '../Apiendpoints/models/Ride_models.dart';
 import '../Apiendpoints/apiservices/Ride_api_service.dart';
 
+// Maps UI filter labels to backend query params
+Map<String, String?> _filterToParams(String filter) {
+  final now = DateTime.now().toUtc();
+  switch (filter) {
+    case 'Today':
+      final today = DateFormat('yyyy-MM-dd').format(now);
+      return {'dateFrom': today, 'dateTo': null, 'status': null};
+    case 'This Week':
+      final weekStart = now.subtract(Duration(days: now.weekday - 1));
+      return {'dateFrom': DateFormat('yyyy-MM-dd').format(weekStart), 'dateTo': null, 'status': null};
+    case 'This Month':
+      final monthStart = DateTime.utc(now.year, now.month, 1);
+      return {'dateFrom': DateFormat('yyyy-MM-dd').format(monthStart), 'dateTo': null, 'status': null};
+    case 'Completed':
+      return {'dateFrom': null, 'dateTo': null, 'status': 'completed'};
+    case 'Cancelled':
+      return {'dateFrom': null, 'dateTo': null, 'status': 'canceled'};
+    default:
+      return {'dateFrom': null, 'dateTo': null, 'status': null};
+  }
+}
+
 class Rides_page extends StatefulWidget {
   const Rides_page({super.key});
 
@@ -32,7 +54,7 @@ class _RidesPageState extends State<Rides_page> {
     _loadOwnerTrips();
   }
 
-  /// Load owner trips from API
+  /// Load owner trips from API, passing active filter to backend
   Future<void> _loadOwnerTrips() async {
     setState(() {
       _isLoading = true;
@@ -40,7 +62,14 @@ class _RidesPageState extends State<Rides_page> {
     });
 
     try {
-      final response = await OwnerTripsApiService.getOwnerTrips();
+      final params = _filterToParams(selectedFilter);
+      final response = selectedFilter == 'All'
+          ? await OwnerTripsApiService.getOwnerTrips()
+          : await OwnerTripsApiService.getOwnerTripsFiltered(
+              status: params['status'],
+              dateFrom: params['dateFrom'],
+              dateTo: params['dateTo'],
+            );
 
       if (response.success && response.data != null) {
         setState(() {
@@ -48,73 +77,22 @@ class _RidesPageState extends State<Rides_page> {
           ownerInfo = response.data!.owner;
           _isLoading = false;
         });
-        print('✅ Loaded ${ownerRides.length} owner trips');
       } else {
         setState(() {
           _errorMessage = response.error ?? 'Failed to load trips';
           _isLoading = false;
         });
-        print('❌ API Error: ${response.error}');
       }
     } catch (e) {
       setState(() {
         _errorMessage = 'Network error: ${e.toString()}';
         _isLoading = false;
       });
-      print('❌ Exception: $e');
     }
   }
 
-  /// Filter trips based on selected filter
-  List<OwnerTrip> get filteredRides {
-    if (selectedFilter == 'All') {
-      return ownerRides;
-    }
-
-    DateTime now = DateTime.now();
-
-    switch (selectedFilter) {
-      case 'Today':
-        return ownerRides.where((ride) {
-          if (ride.date == null) return false;
-          return ride.date!.year == now.year &&
-              ride.date!.month == now.month &&
-              ride.date!.day == now.day;
-        }).toList();
-
-      case 'This Week':
-        DateTime weekStart = now.subtract(Duration(days: now.weekday - 1));
-        return ownerRides.where((ride) {
-          if (ride.date == null) return false;
-          return ride.date!.isAfter(
-            weekStart.subtract(const Duration(days: 1)),
-          );
-        }).toList();
-
-      case 'This Month':
-        return ownerRides.where((ride) {
-          if (ride.date == null) return false;
-          return ride.date!.year == now.year && ride.date!.month == now.month;
-        }).toList();
-
-      case 'Completed':
-        return ownerRides
-            .where((ride) => ride.status.toLowerCase() == 'completed')
-            .toList();
-
-      case 'Cancelled':
-        return ownerRides
-            .where(
-              (ride) =>
-                  ride.status.toLowerCase() == 'canceled' ||
-                  ride.status.toLowerCase() == 'cancelled',
-            )
-            .toList();
-
-      default:
-        return ownerRides;
-    }
-  }
+  // Backend already filtered; expose the list directly
+  List<OwnerTrip> get filteredRides => ownerRides;
 
   /// Refresh trips
   Future<void> _refreshTrips() async {
@@ -135,9 +113,8 @@ class _RidesPageState extends State<Rides_page> {
           PopupMenuButton<String>(
             icon: const Icon(Icons.filter_list, color: Colors.white),
             onSelected: (String value) {
-              setState(() {
-                selectedFilter = value;
-              });
+              setState(() => selectedFilter = value);
+              _loadOwnerTrips();
             },
             itemBuilder: (BuildContext context) {
               return filterOptions.map((String choice) {
@@ -197,6 +174,7 @@ class _RidesPageState extends State<Rides_page> {
           padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.error_outline, size: 80, color: Colors.red[300]),
               const SizedBox(height: 20),
@@ -210,9 +188,13 @@ class _RidesPageState extends State<Rides_page> {
               ),
               const SizedBox(height: 12),
               Text(
-                _errorMessage!,
-                style: const TextStyle(fontSize: 16, color: Colors.grey),
+                _errorMessage!.length > 120
+                    ? '${_errorMessage!.substring(0, 120)}…'
+                    : _errorMessage!,
+                style: const TextStyle(fontSize: 14, color: Colors.grey),
                 textAlign: TextAlign.center,
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 24),
               ElevatedButton.icon(
@@ -397,6 +379,7 @@ class _RidesPageState extends State<Rides_page> {
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               padding: const EdgeInsets.all(24),

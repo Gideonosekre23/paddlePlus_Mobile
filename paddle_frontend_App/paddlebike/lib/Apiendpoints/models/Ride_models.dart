@@ -248,12 +248,14 @@ class OwnerInfo {
   final String username;
   final int id;
   final double totalEarnings;
+  final double pendingBalance;
   final String verificationStatus;
 
   OwnerInfo({
     required this.username,
     required this.id,
     required this.totalEarnings,
+    this.pendingBalance = 0.0,
     required this.verificationStatus,
   });
 
@@ -262,6 +264,7 @@ class OwnerInfo {
       username: json['username'] ?? 'Unknown',
       id: json['id'] ?? 0,
       totalEarnings: json['total_earnings']?.toDouble() ?? 0.0,
+      pendingBalance: (json['pending_balance'] as num?)?.toDouble() ?? 0.0,
       verificationStatus: json['verification_status'] ?? 'unverified',
     );
   }
@@ -271,6 +274,7 @@ class OwnerInfo {
       'username': username,
       'id': id,
       'total_earnings': totalEarnings,
+      'pending_balance': pendingBalance,
       'verification_status': verificationStatus,
     };
   }

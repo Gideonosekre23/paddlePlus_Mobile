@@ -465,6 +465,104 @@ class _RidesPageState extends State<Rides_page> {
     reviewController.dispose();
   }
 
+  Future<void> _showReportIssueDialog(UserTrip trip) async {
+    String? selectedCategory;
+    bool isSubmitting = false;
+    final detailsController = TextEditingController();
+    final categories = [
+      'Billing / overcharge',
+      'Bike issue / damage',
+      'Unlock code didn\'t work',
+      'Safety concern',
+      'Other',
+    ];
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Report an Issue'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Trip #${trip.id}', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                const SizedBox(height: 12),
+                const Text('Category', style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 6),
+                ...categories.map((c) => RadioListTile<String>(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(c, style: const TextStyle(fontSize: 14)),
+                  value: c,
+                  groupValue: selectedCategory,
+                  onChanged: isSubmitting ? null : (v) => setDialogState(() => selectedCategory = v),
+                )),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: detailsController,
+                  maxLines: 3,
+                  enabled: !isSubmitting,
+                  decoration: InputDecoration(
+                    hintText: 'Additional details (optional)',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.all(10),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: (selectedCategory == null || isSubmitting)
+                  ? null
+                  : () async {
+                      setDialogState(() => isSubmitting = true);
+                      final resp = await RideApiService.reportTrip(
+                        trip.id,
+                        category: selectedCategory!,
+                        details: detailsController.text.trim(),
+                      );
+                      if (!ctx.mounted) return;
+                      Navigator.pop(ctx);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              resp.success
+                                  ? (resp.data?.message ?? 'Report submitted. Our team will review it within 24 hours.')
+                                  : (resp.error ?? 'Failed to submit report. Please try again.'),
+                            ),
+                            backgroundColor: resp.success ? Colors.green : Colors.red,
+                            duration: const Duration(seconds: 4),
+                          ),
+                        );
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: isSubmitting
+                  ? const SizedBox(
+                      width: 18, height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('Submit'),
+            ),
+          ],
+        ),
+      ),
+    );
+    detailsController.dispose();
+  }
+
   Widget _buildTripCard(BuildContext context, UserTrip trip) {
     String bikeDisplayName = trip.bikeName;
     String startAddress = trip.startLocation.address;
@@ -547,7 +645,7 @@ class _RidesPageState extends State<Rides_page> {
                 Text(
                   trip.price != null
                       ? '€${trip.price!.toStringAsFixed(2)}'
-                      : 'Price N/A',
+                      : '—',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -601,6 +699,21 @@ class _RidesPageState extends State<Rides_page> {
                       ),
                       child: const Text('Ride Again'),
                     ),
+                    if (isCompleted) ...[
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        onPressed: () => _showReportIssueDialog(trip),
+                        icon: const Icon(Icons.flag_outlined, size: 15),
+                        label: const Text('Report'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.red),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          textStyle: const TextStyle(fontSize: 13),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ],

@@ -3,8 +3,10 @@ import 'package:paddlebike/Apiendpoints/apiservices/auth_api_service.dart';
 import 'package:paddlebike/Apiendpoints/apiservices/user_session_manager.dart';
 import 'package:paddlebike/Apiendpoints/models/api_response.dart';
 import 'package:paddlebike/pages/register_page.dart';
+import 'package:paddlebike/pages/stripe_page.dart';
 import 'package:reactive_theme/reactive_theme.dart';
 import 'package:paddlebike/pages/EditProfilePage.dart';
+import 'package:paddlebike/pages/change_password_page.dart';
 
 class Settings_Page extends StatefulWidget {
   const Settings_Page({super.key});
@@ -16,6 +18,51 @@ class Settings_Page extends StatefulWidget {
 class _SettingsPageState extends State<Settings_Page> {
   bool notificationsEnabled = true;
   String distanceUnit = 'Kilometers';
+  bool _isConnectingStripe = false;
+
+  Future<void> _openStripeConnect() async {
+    if (_isConnectingStripe) return;
+    setState(() => _isConnectingStripe = true);
+    try {
+      final statusResp = await AuthApiService.getStripeConnectStatus();
+      if (!mounted) return;
+      if (statusResp.success && statusResp.data?['connected'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Payout account already connected and ready.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        return;
+      }
+      final connectResp = await AuthApiService.connectStripeAccount();
+      if (!mounted) return;
+      if (connectResp.success && connectResp.data?['onboarding_url'] != null) {
+        final url = connectResp.data!['onboarding_url'] as String;
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => StripeVerificationWebViewPage(initialUrl: url),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(connectResp.error ?? 'Failed to start payout setup'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isConnectingStripe = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,7 +112,10 @@ class _SettingsPageState extends State<Settings_Page> {
                       title: const Text("Change Password"),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () {
-                        // Navigate to change password page
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const ChangePasswordPage()),
+                        );
                       },
                     ),
                   ],
@@ -155,11 +205,16 @@ class _SettingsPageState extends State<Settings_Page> {
                     ),
                     const Divider(height: 1),
                     ListTile(
-                      title: const Text("Payment Methods"),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        // todo payment methods
-                      },
+                      title: const Text("Payout Account"),
+                      subtitle: const Text("Stripe Connect — receive earnings"),
+                      trailing: _isConnectingStripe
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.chevron_right),
+                      onTap: _isConnectingStripe ? null : _openStripeConnect,
                     ),
                   ],
                 ),
@@ -185,7 +240,18 @@ class _SettingsPageState extends State<Settings_Page> {
                       title: const Text("Help Center"),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () {
-                        // Navigate to help center
+                        showDialog(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            title: const Text('Help & Support'),
+                            content: const Text(
+                              'Need help? Contact us at:\n\nsupport@paddleplus.app\n\nWe typically respond within 24 hours.',
+                            ),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
+                            ],
+                          ),
+                        );
                       },
                     ),
                     const Divider(height: 1),
@@ -194,7 +260,20 @@ class _SettingsPageState extends State<Settings_Page> {
                       title: const Text("Terms of Service"),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () {
-                        // Show terms of service
+                        showDialog(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            title: const Text('Terms of Service'),
+                            content: const SingleChildScrollView(
+                              child: Text(
+                                'By using PaddlePlus, you agree to use the platform responsibly and in accordance with all applicable laws. Bike owners are responsible for maintaining their bikes in safe working condition. PaddlePlus reserves the right to suspend accounts that violate these terms.',
+                              ),
+                            ),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+                            ],
+                          ),
+                        );
                       },
                     ),
                     const Divider(height: 1),
@@ -203,7 +282,20 @@ class _SettingsPageState extends State<Settings_Page> {
                       title: const Text("Privacy Policy"),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () {
-                        // Show privacy policy
+                        showDialog(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            title: const Text('Privacy Policy'),
+                            content: const SingleChildScrollView(
+                              child: Text(
+                                'PaddlePlus collects location and account data solely to provide the bike-sharing service. We do not sell your personal information. Data is stored securely and deleted upon account deletion. For questions, contact us at support@paddleplus.app.',
+                              ),
+                            ),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+                            ],
+                          ),
+                        );
                       },
                     ),
                     const Divider(height: 1),
@@ -213,7 +305,12 @@ class _SettingsPageState extends State<Settings_Page> {
                       subtitle: const Text("Version 1.0.0"),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () {
-                        // Show about dialog
+                        showAboutDialog(
+                          context: context,
+                          applicationName: 'PaddlePlus',
+                          applicationVersion: '1.0.0',
+                          applicationLegalese: '© 2024 PaddlePlus. All rights reserved.',
+                        );
                       },
                     ),
                   ],

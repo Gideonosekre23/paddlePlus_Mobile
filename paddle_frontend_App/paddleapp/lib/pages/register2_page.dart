@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:permission_handler/permission_handler.dart' as ph;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -18,8 +18,14 @@ import '../Apiendpoints/apiservices/auth_api_service.dart';
 
 class Register2Page extends StatefulWidget {
   final String registrationToken;
+  // When coming from social login, this is pre-filled and shown read-only.
+  final String? prefillEmail;
 
-  const Register2Page({super.key, required this.registrationToken});
+  const Register2Page({
+    super.key,
+    required this.registrationToken,
+    this.prefillEmail,
+  });
 
   @override
   _Register2PageState createState() => _Register2PageState();
@@ -38,7 +44,7 @@ class _Register2PageState extends State<Register2Page> {
   String? _lastVerificationStatus;
   Timer? _connectionTimeoutTimer;
 
-  File? _profileImageFile;
+  Uint8List? _profileImageBytes;
   final ImagePicker _picker = ImagePicker();
   late Location _location;
   bool _agreedToTerms = false;
@@ -120,9 +126,8 @@ class _Register2PageState extends State<Register2Page> {
         imageQuality: 50,
       );
       if (pickedFile != null) {
-        setState(() {
-          _profileImageFile = File(pickedFile.path);
-        });
+        final bytes = await pickedFile.readAsBytes();
+        if (mounted) setState(() => _profileImageBytes = bytes);
       }
     } catch (e) {
       if (!mounted) return;
@@ -287,9 +292,8 @@ class _Register2PageState extends State<Register2Page> {
     }
 
     String? base64Image;
-    if (_profileImageFile != null) {
-      List<int> imageBytes = await _profileImageFile!.readAsBytes();
-      base64Image = base64Encode(imageBytes);
+    if (_profileImageBytes != null) {
+      base64Image = base64Encode(_profileImageBytes!);
     }
 
     try {
@@ -820,11 +824,11 @@ class _Register2PageState extends State<Register2Page> {
                     radius: 50,
                     backgroundColor: Colors.grey[300],
                     backgroundImage:
-                        _profileImageFile != null
-                            ? FileImage(_profileImageFile!)
+                        _profileImageBytes != null
+                            ? MemoryImage(_profileImageBytes!)
                             : null,
                     child:
-                        _profileImageFile == null
+                        _profileImageBytes == null
                             ? Icon(
                               Icons.camera_alt,
                               color: Colors.grey[700],
@@ -838,13 +842,39 @@ class _Register2PageState extends State<Register2Page> {
             SizedBox(height: 8),
             Center(
               child: Text(
-                _profileImageFile == null
+                _profileImageBytes == null
                     ? 'Tap to add profile picture'
                     : 'Tap to change picture',
                 style: TextStyle(color: Colors.grey[600], fontSize: 14),
               ),
             ),
             SizedBox(height: 24),
+
+            // If coming from social login, show locked email banner
+            if (widget.prefillEmail != null) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.lock_outline, size: 18, color: Colors.blue),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Signing up with: ${widget.prefillEmail}',
+                        style: const TextStyle(color: Colors.blue, fontSize: 14),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
 
             // Form Fields
             TextFieldWidget(

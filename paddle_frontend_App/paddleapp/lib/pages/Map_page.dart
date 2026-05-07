@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart';
@@ -10,10 +11,13 @@ import 'package:paddleapp/Apiendpoints/models/Ride_models.dart';
 import 'package:paddleapp/Apiendpoints/models/auth_models.dart';
 import 'package:paddleapp/Apiendpoints/models/api_response.dart';
 import 'package:paddleapp/constants/Searcharea.dart';
+import 'package:paddleapp/pages/payment_setup_page.dart';
+import 'package:paddleapp/pages/notification_history_page.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:paddleapp/consts.dart';
 import 'package:geocoding/geocoding.dart' as geo;
-import 'package:cached_network_image/cached_network_image.dart';
+
+import 'package:shared_preferences/shared_preferences.dart';
 
 class Map_page extends StatefulWidget {
   final String? initialDestination;
@@ -57,9 +61,14 @@ class _Map_pageState extends State<Map_page> {
   bool showBikeDetails = false;
   String? tripId;
   String? activeTripId;
+  String? activeBikeId;
   String? bikeOwnerName;
   int? bikeOwnerId;
   String? chatRoomId;
+
+  // Unlock code fetched from backend
+  String? _currentUnlockCode;
+  bool _isFetchingUnlockCode = false;
 
   bool atDestination = false;
   bool _isGettingPolyline = false;
@@ -68,6 +77,7 @@ class _Map_pageState extends State<Map_page> {
   bool _isEstimatingPrice = false;
   String? _priceEstimationError;
   String? _priceToken;
+  double? _estimatedDistance;
   List<NearbyBike> _fetchedNearbyBikes = [];
   bool _isLoadingBikes = false;
 
@@ -83,16 +93,36 @@ class _Map_pageState extends State<Map_page> {
   // Trip lifecycle: started → waiting for unlock confirmation → ontrip
   bool _tripStarted = false;
   bool _isBeginningTrip = false;
+  bool _isCancellingTrip = false;
+  BitmapDescriptor? _bikeMarkerIcon;
+  BitmapDescriptor? _orangeBikeMarkerIcon;
+  BitmapDescriptor? _greenBikeMarkerIcon;
 
   // Bike conflict: preferred bike taken, alternative offered
   AlternativeBike? _alternativeBike;
   String? _newPriceToken;
+
+  // Price token expiry
+  int? _priceTokenValidUntil;
+
+  // Polling fallback when WebSocket doesn't deliver the acceptance
+  Timer? _pollingTimer;
+  StreamSubscription? _locationSubscription;
+
+  // Unlock code countdown (15 min from acceptance)
+  DateTime? _unlockAcceptedAt;
+  int _unlockSecondsLeft = 0;
+  Timer? _unlockCountdownTimer;
+
+  // Distance unit preference ('Kilometers' or 'Miles')
+  String _distanceUnit = 'Kilometers';
 
   @override
   void initState() {
     super.initState();
     print('🗺️ Google API key: "${google_api_key}" (length: ${google_api_key.length})');
     _setupWebSocketListener();
+    _loadDistanceUnit();
 
     _getCurrentLocation().then((_) {
       if (mounted && currentposition != null) {
@@ -124,6 +154,21 @@ class _Map_pageState extends State<Map_page> {
     });
   }
 
+  Future<void> _loadDistanceUnit() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _distanceUnit = prefs.getString('distance_unit') ?? 'Kilometers';
+    });
+  }
+
+  String _formatDistance(double km) {
+    if (_distanceUnit == 'Miles') {
+      return '${(km * 0.621371).toStringAsFixed(1)} mi';
+    }
+    return '${km.toStringAsFixed(1)} km';
+  }
+
   Future<void> _tryRecoverActiveTrip() async {
     final response = await RideApiService.getActiveTrip();
     if (!mounted) return;
@@ -133,12 +178,8 @@ class _Map_pageState extends State<Map_page> {
         activeTripId = trip.id.toString();
         chatRoomId = trip.chatRoomId?.toString();
         bikeOwnerName = trip.owner?.username;
-        if (trip.status == 'started') {
-          _tripStarted = true;
-          isActiveTrip = false;
-        } else if (trip.status == 'ontrip' || trip.status == 'waiting') {
-          isActiveTrip = trip.status != 'waiting';
-        }
+        bikeOwnerId = trip.owner?.id;
+
         if (trip.destination.latitude != null &&
             trip.destination.longitude != null) {
           finalDestination = LatLng(
@@ -147,11 +188,32 @@ class _Map_pageState extends State<Map_page> {
           );
           destinationposition = finalDestination;
         }
+
+        switch (trip.status) {
+          case 'waiting':
+            // Accepted — rider navigating to the bike
+            rideAccepted = true;
+            navigatingToBike = true;
+            if (trip.bike?.latitude != null && trip.bike?.longitude != null) {
+              Bikelocation = LatLng(trip.bike!.latitude!, trip.bike!.longitude!);
+            }
+          case 'started':
+            // Rider at bike — showing unlock card
+            _tripStarted = true;
+            rideAccepted = false;
+            navigatingToBike = false;
+          case 'ontrip':
+            // Actively riding
+            isActiveTrip = true;
+            rideAccepted = false;
+            navigatingToBike = false;
+        }
       });
       if (widget.onTripStatusChanged != null) {
         widget.onTripStatusChanged!(true, {
           'tripId': activeTripId,
           'bikeOwnerName': bikeOwnerName,
+          'bikeOwnerId': bikeOwnerId,
           'chatRoomId': chatRoomId,
         });
       }
@@ -211,6 +273,21 @@ class _Map_pageState extends State<Map_page> {
     } else if (data != null && data['status'] == 'declined') {
       print("Map_page: Ride declined notification! Processing...");
       _handleRideRequestDeclined(data);
+    } else if (data != null && data['notification_type'] == 'bike_location_update') {
+      final lat = (data['latitude'] as num?)?.toDouble();
+      final lng = (data['longitude'] as num?)?.toDouble();
+      if (lat != null && lng != null && mounted) {
+        setState(() {
+          Bikelocation = LatLng(lat, lng);
+          markers.removeWhere((m) => m.markerId.value == 'bike_location');
+          markers.add(Marker(
+            markerId: const MarkerId('bike_location'),
+            position: Bikelocation!,
+            icon: _bikeMarkerIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+            infoWindow: const InfoWindow(title: 'Bike'),
+          ));
+        });
+      }
     } else {
       print("Map_page: Notification received: $title");
     }
@@ -228,6 +305,7 @@ class _Map_pageState extends State<Map_page> {
     });
 
     _rideRequestTimeoutTimer?.cancel();
+    _stopPolling();
     _handleRideAccepted(data);
   }
 
@@ -245,6 +323,7 @@ class _Map_pageState extends State<Map_page> {
     });
 
     _rideRequestTimeoutTimer?.cancel();
+    _stopPolling();
 
     _showDeclinedMessage(data);
 
@@ -311,6 +390,7 @@ class _Map_pageState extends State<Map_page> {
 
     print("Map_page: Ride request timed out: $data");
 
+    final idToCancel = _tempRequestId;
     setState(() {
       _isRequestingRide = false;
       _requestStatus = 'failed';
@@ -320,13 +400,20 @@ class _Map_pageState extends State<Map_page> {
 
     _rideRequestTimeoutTimer?.cancel();
     _showErrorSnackbar(_rideRequestError!);
+
+    if (idToCancel != null) {
+      RideApiService.cancelRideRequest(idToCancel);
+    }
   }
 
   @override
   void dispose() {
     _searchController.dispose();
     _rideRequestTimeoutTimer?.cancel();
+    _pollingTimer?.cancel();
+    _unlockCountdownTimer?.cancel();
     _wsSubscription?.cancel();
+    _locationSubscription?.cancel();
     super.dispose();
   }
 
@@ -394,6 +481,41 @@ class _Map_pageState extends State<Map_page> {
               ),
             ),
           ),
+
+          // Report Issue button — only visible during active trip
+          if (isActiveTrip)
+            Positioned(
+              top: 110,
+              right: 20,
+              child: GestureDetector(
+                onTap: _showReportTripDialog,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade700,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.25),
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.flag, color: Colors.white, size: 16),
+                      SizedBox(width: 4),
+                      Text(
+                        'Report',
+                        style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
 
           // Dynamic Bottom Cards — AnimatedSwitcher gives a smooth slide-up transition
           Positioned(
@@ -468,19 +590,27 @@ class _Map_pageState extends State<Map_page> {
   }
 
   Future<void> _getCurrentLocation() async {
+    try {
     bool serviceEnabled;
     PermissionStatus permissionGranted;
 
     serviceEnabled = await locationController.serviceEnabled();
     if (!serviceEnabled) {
       serviceEnabled = await locationController.requestService();
-      if (!serviceEnabled) return;
+      if (!serviceEnabled) {
+        if (mounted) _showErrorSnackbar('Location services are disabled. Please enable them to use the map.');
+        return;
+      }
     }
 
     permissionGranted = await locationController.hasPermission();
-    if (permissionGranted == PermissionStatus.denied) {
+    if (permissionGranted == PermissionStatus.denied ||
+        permissionGranted == PermissionStatus.deniedForever) {
       permissionGranted = await locationController.requestPermission();
-      if (permissionGranted != PermissionStatus.granted) return;
+      if (permissionGranted != PermissionStatus.granted) {
+        if (mounted) _showErrorSnackbar('Location permission is required to find nearby bikes.');
+        return;
+      }
     }
 
     LocationData locationData = await locationController.getLocation();
@@ -492,7 +622,7 @@ class _Map_pageState extends State<Map_page> {
 
     // Throttle location updates
     DateTime? lastUpdate;
-    locationController.onLocationChanged.listen((LocationData currentlocation) {
+    _locationSubscription = locationController.onLocationChanged.listen((LocationData currentlocation) {
       if (currentlocation.latitude != null &&
           currentlocation.longitude != null) {
         // Throttle updates to every 3 seconds
@@ -551,6 +681,9 @@ class _Map_pageState extends State<Map_page> {
         }
       }
     });
+    } catch (e) {
+      if (mounted) _showErrorSnackbar('Could not get current location: ${e.toString()}');
+    }
   }
 
   void _updateCurrentLocationMarker() {
@@ -580,10 +713,9 @@ class _Map_pageState extends State<Map_page> {
   Future<void> _addBikeMarkerAtCurrentPosition() async {
     if (currentposition == null) return;
 
-    final bikeIcon = await BitmapDescriptor.asset(
-      const ImageConfiguration(size: Size(48, 48)),
-      'assets/images/bikemarker.png',
-    );
+    _greenBikeMarkerIcon ??=
+        await _createBikeMarkerIcon(bgColor: Colors.green);
+    final bikeIcon = _greenBikeMarkerIcon!;
 
     markers.add(
       Marker(
@@ -876,15 +1008,60 @@ class _Map_pageState extends State<Map_page> {
     }
   }
 
+  Future<BitmapDescriptor> _createBikeMarkerIcon({
+    Color bgColor = const Color(0xFF76ACC6),
+    double size = 80,
+  }) async {
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+
+    canvas.drawCircle(
+      Offset(size / 2, size / 2 + 3),
+      size / 2,
+      Paint()
+        ..color = Colors.black26
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+    );
+    canvas.drawCircle(
+      Offset(size / 2, size / 2),
+      size / 2,
+      Paint()..color = bgColor,
+    );
+    canvas.drawCircle(
+      Offset(size / 2, size / 2),
+      size / 2 - 2,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5,
+    );
+
+    final tp = TextPainter(textDirection: TextDirection.ltr)
+      ..text = TextSpan(
+        text: String.fromCharCode(Icons.directions_bike.codePoint),
+        style: TextStyle(
+          fontSize: size * 0.52,
+          fontFamily: Icons.directions_bike.fontFamily,
+          color: Colors.white,
+        ),
+      )
+      ..layout();
+    tp.paint(canvas, Offset((size - tp.width) / 2, (size - tp.height) / 2));
+
+    final img = await recorder
+        .endRecording()
+        .toImage(size.toInt(), size.toInt());
+    final bytes = await img.toByteData(format: ui.ImageByteFormat.png);
+    return BitmapDescriptor.fromBytes(bytes!.buffer.asUint8List());
+  }
+
   Future<void> _addFetchedBikeMarkers() async {
     markers.removeWhere((m) => m.markerId.value.startsWith("bike_api_"));
 
     if (_fetchedNearbyBikes.isEmpty) return;
 
-    final icon = await BitmapDescriptor.asset(
-      const ImageConfiguration(size: Size(48, 48)),
-      'assets/images/bikemarker.png',
-    );
+    _bikeMarkerIcon ??= await _createBikeMarkerIcon();
+    final icon = _bikeMarkerIcon!;
 
     for (var bike in _fetchedNearbyBikes) {
       final marker = Marker(
@@ -900,7 +1077,9 @@ class _Map_pageState extends State<Map_page> {
             setState(() {
               selectedApiBike = bike;
               showBikeDetails = true;
+              Bikelocation = LatLng(bike.location.latitude, bike.location.longitude);
             });
+            _getPolylineToBike();
           }
         },
       );
@@ -912,16 +1091,15 @@ class _Map_pageState extends State<Map_page> {
   }
 
   Widget _showBikeInfo(NearbyBike bike) {
-    String distanceText = "${bike.distance.toStringAsFixed(1)} km away";
-    if (currentposition != null) {
-      double distanceInKm = calculateDistance(
-        currentposition!.latitude,
-        currentposition!.longitude,
-        bike.location.latitude,
-        bike.location.longitude,
-      );
-      distanceText = '${distanceInKm.toStringAsFixed(1)} km away';
-    }
+    final double distanceInKm = currentposition != null
+        ? calculateDistance(
+            currentposition!.latitude,
+            currentposition!.longitude,
+            bike.location.latitude,
+            bike.location.longitude,
+          )
+        : bike.distance;
+    final String distanceText = '${_formatDistance(distanceInKm)} away';
 
     return Card(
       elevation: 8,
@@ -947,7 +1125,11 @@ class _Map_pageState extends State<Map_page> {
                   onPressed: () {
                     setState(() {
                       showBikeDetails = false;
+                      polylines.clear();
                     });
+                    if (destinationposition != null) {
+                      _getPolyline();
+                    }
                   },
                 ),
               ],
@@ -1095,18 +1277,67 @@ class _Map_pageState extends State<Map_page> {
                       width: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  else
+                  else if (_priceEstimationError != null) ...[
+                    const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                    const SizedBox(height: 4),
                     Text(
-                      priceDisplay,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color:
-                            _priceEstimationError != null
-                                ? Colors.red
-                                : const Color.fromARGB(255, 118, 172, 198),
+                      _priceEstimationError!,
+                      style: const TextStyle(fontSize: 13, color: Colors.red),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 6),
+                    TextButton.icon(
+                      onPressed: _isEstimatingPrice ? null : _getestimateprice,
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: const Text('Retry', style: TextStyle(fontSize: 13)),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                     ),
+                  ] else if (estimatedPrice == null) ...[
+                    // Price not yet fetched (e.g. location was unavailable at destination select)
+                    const Text(
+                      'Price unavailable',
+                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 6),
+                    TextButton.icon(
+                      onPressed: _isEstimatingPrice ? null : _getestimateprice,
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: const Text('Get Price', style: TextStyle(fontSize: 13)),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                  ] else
+                    Text(
+                      priceDisplay,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Color.fromARGB(255, 118, 172, 198),
+                      ),
+                    ),
+                  if (_estimatedDistance != null) ...[
+                    const SizedBox(height: 8),
+                    const Divider(height: 1, thickness: 1),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.straighten, size: 14, color: Colors.grey),
+                        const SizedBox(width: 4),
+                        Text(
+                          _formatDistance(_estimatedDistance!),
+                          style: const TextStyle(fontSize: 14, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1177,6 +1408,7 @@ class _Map_pageState extends State<Map_page> {
       markers.removeWhere((marker) => marker.markerId.value == 'destination');
       _lastOrigin = null;
       _lastDestination = null;
+      _estimatedDistance = null;
       print("Request stopped");
     });
     _searchController.clear();
@@ -1186,12 +1418,24 @@ class _Map_pageState extends State<Map_page> {
   void _handleRideAccepted(Map<String, dynamic> responseData) {
     print("🔥 _handleRideAccepted called with data: $responseData");
 
+    _unlockAcceptedAt = DateTime.now();
+    _unlockSecondsLeft = 15 * 60; // 15 min
+    _unlockCountdownTimer?.cancel();
+    _unlockCountdownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) { t.cancel(); return; }
+      setState(() {
+        _unlockSecondsLeft--;
+        if (_unlockSecondsLeft <= 0) t.cancel();
+      });
+    });
     setState(() {
       rideAccepted = true;
       acceptedRideData = responseData;
 
       tripId = responseData['trip_id']?.toString();
+      activeBikeId = responseData['bike']?['bike_id']?.toString();
       bikeOwnerName = responseData['owner_username']?.toString();
+      bikeOwnerId = (responseData['owner_id'] as num?)?.toInt();
       chatRoomId = responseData['chat_room_id']?.toString();
 
       final bikeData = responseData['bike'] as Map<String, dynamic>?;
@@ -1301,10 +1545,17 @@ class _Map_pageState extends State<Map_page> {
 
   Future<void> _beginTrip() async {
     if (activeTripId == null) return;
+    if (_currentUnlockCode == null || _currentUnlockCode!.isEmpty) {
+      _showErrorSnackbar('Please get the unlock code first, then tap "I\'ve Unlocked the Bike".');
+      return;
+    }
     setState(() => _isBeginningTrip = true);
 
     try {
-      final response = await RideApiService.beginTrip(activeTripId!);
+      final response = await RideApiService.beginTrip(
+        activeTripId!,
+        unlockCode: _currentUnlockCode!,
+      );
       if (!mounted) return;
 
       if (response.success) {
@@ -1343,6 +1594,26 @@ class _Map_pageState extends State<Map_page> {
     }
   }
 
+  Future<void> _refreshUnlockCode() async {
+    final bikeId = activeBikeId;
+    if (bikeId == null || _isFetchingUnlockCode) return;
+    setState(() => _isFetchingUnlockCode = true);
+    try {
+      final resp = await RideApiService.getBikeUnlockCode(bikeId);
+      if (!mounted) return;
+      if (resp.success && resp.data != null) {
+        setState(() {
+          _currentUnlockCode = resp.data!['unlock_code']?.toString();
+          _unlockSecondsLeft = 30;
+        });
+      } else {
+        _showErrorSnackbar(resp.error ?? 'Could not fetch unlock code');
+      }
+    } finally {
+      if (mounted) setState(() => _isFetchingUnlockCode = false);
+    }
+  }
+
   Widget _buildUnlockBikeCard() {
     return Card(
       elevation: 8,
@@ -1363,11 +1634,66 @@ class _Map_pageState extends State<Map_page> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Check the chat for your unlock code.\nEnter it on the bike keypad, then tap the button below.',
+              'Enter this code on the bike keypad, then tap the button below.',
               style: TextStyle(fontSize: 14, color: Colors.grey),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+            if (_currentUnlockCode != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange),
+                ),
+                child: Text(
+                  _currentUnlockCode!,
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 6,
+                    color: Colors.orange,
+                  ),
+                ),
+              ),
+            const SizedBox(height: 8),
+            Builder(builder: (_) {
+              final mins = (_unlockSecondsLeft ~/ 60).toString().padLeft(2, '0');
+              final secs = (_unlockSecondsLeft % 60).toString().padLeft(2, '0');
+              final expired = _unlockSecondsLeft <= 0;
+              return Column(
+                children: [
+                  Text(
+                    expired
+                        ? 'Code expired'
+                        : _currentUnlockCode != null
+                            ? 'Code expires in $mins:$secs'
+                            : 'Check chat for unlock code',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: _unlockSecondsLeft < 30 ? Colors.red : Colors.orange,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  TextButton.icon(
+                    onPressed: _isFetchingUnlockCode ? null : _refreshUnlockCode,
+                    icon: _isFetchingUnlockCode
+                        ? const SizedBox(
+                            width: 14, height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange),
+                          )
+                        : const Icon(Icons.refresh, size: 16, color: Colors.orange),
+                    label: Text(
+                      _currentUnlockCode == null ? 'Get Unlock Code' : 'Refresh Code',
+                      style: const TextStyle(color: Colors.orange, fontSize: 13),
+                    ),
+                  ),
+                ],
+              );
+            }),
+            const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -1439,7 +1765,7 @@ class _Map_pageState extends State<Map_page> {
             ),
             const SizedBox(height: 12),
             Text('Alternative available: ${alt.name} (${alt.brand} ${alt.model})'),
-            Text('Distance: ${alt.distanceKm.toStringAsFixed(1)} km away'),
+            Text('Distance: ${_formatDistance(alt.distanceKm)} away'),
             if (_estimatedAlternativePrice != null)
               Text('Price: €${_estimatedAlternativePrice!.toStringAsFixed(2)}'),
             const SizedBox(height: 16),
@@ -1490,14 +1816,14 @@ class _Map_pageState extends State<Map_page> {
     setState(() {
       _priceToken = _newPriceToken;
       estimatedPrice = _estimatedAlternativePrice;
+      _priceTokenValidUntil = null; // reset so expiry check is skipped
       _alternativeBike = null;
       _newPriceToken = null;
       _estimatedAlternativePrice = null;
       _isRequestingRide = false;
       _requestStatus = 'idle';
     });
-    _showSuccessSnackbar(
-        'Alternative bike selected. Tap "Request Ride" to confirm.');
+    _startRideRequest();
   }
 
   void _dismissAlternativeBike() {
@@ -1675,6 +2001,20 @@ class _Map_pageState extends State<Map_page> {
       return;
     }
 
+    // Destination must differ from origin by at least ~10 m
+    final latDiff = (destinationposition!.latitude - currentposition!.latitude).abs();
+    final lngDiff = (destinationposition!.longitude - currentposition!.longitude).abs();
+    if (latDiff < 0.0001 && lngDiff < 0.0001) {
+      if (mounted) {
+        setState(() {
+          _priceEstimationError = "Destination is too close to your current location.";
+          estimatedPrice = null;
+          _priceToken = null;
+        });
+      }
+      return;
+    }
+
     if (mounted) {
       setState(() {
         _isEstimatingPrice = true;
@@ -1699,7 +2039,9 @@ class _Map_pageState extends State<Map_page> {
         if (response.success && response.data != null) {
           setState(() {
             estimatedPrice = response.data!.estimatedPrice;
+            _estimatedDistance = response.data!.tripDetails.distance;
             _priceToken = response.data!.priceToken;
+            _priceTokenValidUntil = response.data!.validUntil;
             print(
               "Price estimated: ${response.data!.estimatedPrice}, Token: ${response.data!.priceToken}",
             );
@@ -1709,6 +2051,7 @@ class _Map_pageState extends State<Map_page> {
             _priceEstimationError =
                 response.error ?? "Failed to estimate price.";
             estimatedPrice = null;
+            _estimatedDistance = null;
             _priceToken = null;
           });
           print("Price estimation failed: ${response.error}");
@@ -1748,10 +2091,11 @@ class _Map_pageState extends State<Map_page> {
     final bikeMarker = Marker(
       markerId: const MarkerId("bike_location"),
       position: Bikelocation!,
-      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+      icon: _orangeBikeMarkerIcon ??=
+          await _createBikeMarkerIcon(bgColor: Colors.orange),
       infoWindow: InfoWindow(
         title: "Your Bike",
-        snippet: acceptedRideData?['bike']['name'] ?? 'Bike',
+        snippet: acceptedRideData?['bike']?['name'] ?? 'Bike',
       ),
     );
 
@@ -1798,14 +2142,14 @@ class _Map_pageState extends State<Map_page> {
 
             // Payment info
             Text(
-              'Payment: ${acceptedRideData?['payment']['amount']?.toStringAsFixed(2) ?? '0.00'} €',
+              'Payment: ${acceptedRideData?['payment']?['amount']?.toStringAsFixed(2) ?? '0.00'} €',
               style: const TextStyle(fontSize: 14, color: Colors.grey),
             ),
             const SizedBox(height: 8),
 
             // Bike info
             Text(
-              'Bike: ${acceptedRideData?['bike']['name'] ?? 'Unknown'}',
+              'Bike: ${acceptedRideData?['bike']?['name'] ?? 'Unknown'}',
               style: const TextStyle(fontSize: 14, color: Colors.grey),
             ),
             const SizedBox(height: 8),
@@ -1859,6 +2203,45 @@ class _Map_pageState extends State<Map_page> {
     );
   }
 
+  Future<void> _cancelAcceptedTrip() async {
+    if (tripId == null) return;
+    setState(() => _isCancellingTrip = true);
+
+    final resp = await RideApiService.cancelTrip(tripId!);
+    if (!mounted) return;
+
+    if (resp.success) {
+      setState(() {
+        rideAccepted = false;
+        navigatingToBike = false;
+        atBikeLocation = false;
+        tripId = null;
+        acceptedRideData = null;
+        Bikelocation = null;
+        bikeOwnerName = null;
+        bikeOwnerId = null;
+        polylines.clear();
+        markers.removeWhere((m) => m.markerId.value == 'bike_location');
+        _isCancellingTrip = false;
+      });
+      _stopPolling();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Trip cancelled — your card hold has been released'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      _fetchAndDisplayNearbyBikes();
+    } else {
+      setState(() => _isCancellingTrip = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(resp.error ?? 'Could not cancel — please try again'),
+        ),
+      );
+    }
+  }
+
   Widget _buildStartTripCard() {
     return Card(
       elevation: 8,
@@ -1887,10 +2270,12 @@ class _Map_pageState extends State<Map_page> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  print("Start Trip button pressed!");
-                  _startTrip();
-                },
+                onPressed: _isCancellingTrip
+                    ? null
+                    : () {
+                        print("Start Trip button pressed!");
+                        _startTrip();
+                      },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1907,6 +2292,25 @@ class _Map_pageState extends State<Map_page> {
                   ),
                 ),
               ),
+            ),
+            const SizedBox(height: 10),
+            if (estimatedPrice != null)
+              Text(
+                'Card held for ~€${estimatedPrice!.toStringAsFixed(2)}',
+                style: const TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+            const SizedBox(height: 4),
+            TextButton.icon(
+              onPressed: _isCancellingTrip ? null : _cancelAcceptedTrip,
+              icon: const Icon(Icons.close, color: Colors.red, size: 18),
+              label: Text(
+                _isCancellingTrip ? 'Cancelling...' : 'Cancel Trip',
+                style: const TextStyle(color: Colors.red, fontSize: 14),
+              ),
+            ),
+            const Text(
+              'No charge if cancelled now',
+              style: TextStyle(fontSize: 11, color: Colors.grey),
             ),
           ],
         ),
@@ -2060,6 +2464,7 @@ class _Map_pageState extends State<Map_page> {
       if (response.success && response.data != null) {
         final endData = response.data!;
         final endedTripId = activeTripId;
+        final endedBikeId = activeBikeId;
 
         if (widget.onTripStatusChanged != null) {
           widget.onTripStatusChanged!(false, null);
@@ -2072,9 +2477,11 @@ class _Map_pageState extends State<Map_page> {
           atDestination = false;
           Bikelocation = null;
           activeTripId = null;
+          activeBikeId = null;
           bikeOwnerName = null;
           bikeOwnerId = null;
           chatRoomId = null;
+          _currentUnlockCode = null;
           polylines.clear();
           markers.removeWhere(
             (marker) =>
@@ -2082,6 +2489,13 @@ class _Map_pageState extends State<Map_page> {
                 marker.markerId.value == 'bike_location',
           );
         });
+
+        // Signal the bike hardware to lock
+        if (endedBikeId != null) {
+          RideApiService.lockBike(endedBikeId).then((r) {
+            if (!r.success) print('Lock bike failed: ${r.error}');
+          });
+        }
 
         _updateCurrentLocationMarker();
         _searchController.clear();
@@ -2105,6 +2519,82 @@ class _Map_pageState extends State<Map_page> {
       print("Exception during trip end: $e");
       _showErrorSnackbar("An error occurred while ending the trip.");
     }
+  }
+
+  Future<void> _showReportTripDialog() async {
+    if (activeTripId == null) return;
+    final tripIdInt = int.tryParse(activeTripId!);
+    if (tripIdInt == null) return;
+
+    const categories = [
+      'Bike malfunction',
+      'Safety concern',
+      'Incorrect charge',
+      'Other',
+    ];
+    String? selectedCategory;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setStateDialog) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.flag, color: Colors.orange),
+              SizedBox(width: 8),
+              Text('Report an Issue'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: categories
+                .map(
+                  (cat) => RadioListTile<String>(
+                    dense: true,
+                    title: Text(cat),
+                    value: cat,
+                    groupValue: selectedCategory,
+                    onChanged: (v) => setStateDialog(() => selectedCategory = v),
+                  ),
+                )
+                .toList(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: selectedCategory == null
+                  ? null
+                  : () async {
+                      Navigator.of(ctx).pop();
+                      final resp = await RideApiService.reportTrip(
+                        tripIdInt,
+                        category: selectedCategory!,
+                      );
+                      if (!mounted) return;
+                      if (resp.success) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Report submitted. Thank you!'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      } else {
+                        _showErrorSnackbar(resp.error ?? 'Failed to submit report');
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Submit'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _showTripReceiptDialog(
@@ -2259,6 +2749,7 @@ class _Map_pageState extends State<Map_page> {
 
   void _showSuccessSnackbar(String message) {
     if (!mounted) return;
+    NotificationStore.instance.add('PaddlePlus', message);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -2400,6 +2891,22 @@ class _Map_pageState extends State<Map_page> {
                         color: Color.fromARGB(255, 118, 172, 198),
                       ),
                     ),
+                    if (_estimatedDistance != null) ...[
+                      const SizedBox(height: 6),
+                      const Divider(height: 1, thickness: 1),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.straighten, size: 14, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          Text(
+                            _formatDistance(_estimatedDistance!),
+                            style: const TextStyle(fontSize: 13, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -2510,44 +3017,45 @@ class _Map_pageState extends State<Map_page> {
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
-      child: CachedNetworkImage(
-        imageUrl: bikeImageUrl,
+      child: Image.network(
+        bikeImageUrl,
         height: 150,
         width: double.infinity,
         fit: BoxFit.cover,
-        placeholder:
-            (context, url) => Container(
-              height: 150,
-              width: double.infinity,
-              color: Colors.grey[200],
-              child: const Center(
-                child: CircularProgressIndicator(
-                  color: Color.fromARGB(255, 118, 172, 198),
-                ),
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            height: 150,
+            width: double.infinity,
+            color: Colors.grey[200],
+            child: const Center(
+              child: CircularProgressIndicator(
+                color: Color.fromARGB(255, 118, 172, 198),
               ),
             ),
-        errorWidget:
-            (context, url, error) => Container(
-              height: 150,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.broken_image, size: 40, color: Colors.grey),
-                    SizedBox(height: 8),
-                    Text(
-                      'Image unavailable',
-                      style: TextStyle(color: Colors.grey, fontSize: 12),
-                    ),
-                  ],
+          );
+        },
+        errorBuilder: (context, error, stackTrace) => Container(
+          height: 150,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.grey[300],
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.broken_image, size: 40, color: Colors.grey),
+                SizedBox(height: 8),
+                Text(
+                  'Image unavailable',
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
                 ),
-              ),
+              ],
             ),
+          ),
+        ),
       ),
     );
   }
@@ -2557,6 +3065,7 @@ class _Map_pageState extends State<Map_page> {
     _rideRequestTimeoutTimer = Timer(const Duration(minutes: 5), () async {
       if (!mounted || !_isRequestingRide || _requestStatus != 'waiting') return;
       final idToCancel = _tempRequestId;
+      _stopPolling();
       setState(() {
         _isRequestingRide = false;
         _requestStatus = 'idle';
@@ -2568,9 +3077,61 @@ class _Map_pageState extends State<Map_page> {
         await RideApiService.cancelRideRequest(idToCancel);
       }
     });
+    _startPolling();
+  }
+
+  void _startPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
+      if (!mounted || _tempRequestId == null || _requestStatus != 'waiting') {
+        _stopPolling();
+        return;
+      }
+      final resp = await RideApiService.getRequestStatus(_tempRequestId!);
+      if (!mounted) return;
+      if (resp.success && resp.data != null) {
+        final s = resp.data!.status;
+        if (s == 'accepted') {
+          _stopPolling();
+          _rideRequestTimeoutTimer?.cancel();
+          setState(() {
+            _isRequestingRide = false;
+            _requestStatus = 'accepted';
+            _tempRequestId = null;
+          });
+          // Recover full trip state (bike location, owner, chat room) from backend
+          await _tryRecoverActiveTrip();
+        } else if (s == 'declined' || s == 'cancelled') {
+          _stopPolling();
+          _handleRideRequestDeclined({'message': 'Request was $s.'});
+        }
+      }
+    });
+  }
+
+  void _stopPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = null;
   }
 
   Future<void> _startRideRequest() async {
+    // Check payment method
+    final user = _sessionManager.currentUser;
+    if (user != null && !user.hasPaymentMethod) {
+      _showNoPaymentMethodDialog();
+      return;
+    }
+
+    // Re-estimate if price token expired
+    if (_priceTokenValidUntil != null) {
+      final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      if (nowSec >= _priceTokenValidUntil!) {
+        _showInfoSnackbar('Price estimate expired — refreshing...');
+        await _getestimateprice();
+        if (_priceToken == null) return;
+      }
+    }
+
     setState(() {
       _isRequestingRide = true;
       _requestStatus = 'preparing';
@@ -2578,6 +3139,62 @@ class _Map_pageState extends State<Map_page> {
     });
 
     await _RequestRide();
+  }
+
+  void _showNoPaymentMethodDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Payment Method Required'),
+        content: const Text(
+          'Add a card to request a ride. You can also add one in Settings → Payment Methods.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Later'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PaymentSetupPage()),
+              );
+              if (!mounted) return;
+              // Refresh session to pick up new card
+              final profileResp = await AuthApiService.getProfile();
+              if (profileResp.success && profileResp.data != null) {
+                await _sessionManager.updateUser(profileResp.data!);
+              }
+              // Retry if card was added
+              final user = _sessionManager.currentUser;
+              if (user != null && user.hasPaymentMethod) {
+                _startRideRequest();
+              } else {
+                _showInfoSnackbar('Add a card first to request a ride.');
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color.fromARGB(255, 118, 172, 198),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Add Card'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showInfoSnackbar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.blue,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   void _cancelRideRequest() async {

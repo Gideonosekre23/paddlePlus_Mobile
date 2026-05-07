@@ -19,16 +19,13 @@ class BaseApiService {
         print("Using debug web fallback URL: http://localhost:8000");
         return 'http://localhost:8000';
       } else if (Platform.isAndroid) {
-        print(
-          "Using debug Android emulator fallback URL: http://10.0.2.2:8000",
-        );
-        // return 'http://10.0.2.2:8000';
-        return 'http://192.168.1.2:8000';
+        // 10.0.2.2 reaches the host machine from the Android emulator.
+        // For a physical device on LAN, pass --dart-define=API_BASE_URL=http://<your-ip>:8000
+        print("Using debug Android fallback URL: http://10.0.2.2:8000");
+        return 'http://10.0.2.2:8000';
       } else if (Platform.isIOS || Platform.isMacOS) {
-        // iOS simulator or macOS desktop can usually use localhost directly
         print("Using debug iOS/macOS fallback URL: http://localhost:8000");
-        // return 'http://localhost:8000';
-        return 'http://192.168.1.2:8000';
+        return 'http://localhost:8000';
       }
 
       print(
@@ -36,24 +33,19 @@ class BaseApiService {
       );
     }
 
-    const String productionUrl = 'productin link';
+    const String productionUrl = String.fromEnvironment(
+      'API_BASE_URL',
+      defaultValue: 'https://paddle-backend.onrender.com',
+    );
 
     if (!kDebugMode) {
-      // Only print "Using production URL" if actually in release mode
       print("Using production URL: $productionUrl");
     } else {
-      // If kDebugMode is true and it fell through here
       print(
         "Using fallback/production URL in debug mode (no specific platform match or env var): $productionUrl",
       );
     }
 
-    if (productionUrl == 'https://your-actual-production-api.com' &&
-        !kDebugMode) {
-      print(
-        "WARNING: Using placeholder production URL. Configure API_BASE_URL for release builds or update the placeholder in BaseApiService.dart.",
-      );
-    }
     return productionUrl;
   }
 
@@ -303,6 +295,41 @@ class BaseApiService {
     }
   }
 
+  /// Performs a multipart HTTP request (PATCH) for file uploads.
+  static Future<ApiResponse<T>> patchMultipart<T>(
+    String endpoint, {
+    required Map<String, String> fields,
+    Map<String, String>? filePaths,
+    bool auth = true,
+    T Function(Map<String, dynamic>)? fromJson,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl$endpoint');
+      final request = http.MultipartRequest('PATCH', uri);
+
+      if (auth) {
+        final token = await TokenStorageService.getAccessToken();
+        if (token != null) {
+          request.headers['Authorization'] = 'Bearer $token';
+        }
+      }
+
+      request.fields.addAll(fields);
+
+      if (filePaths != null) {
+        for (final entry in filePaths.entries) {
+          request.files.add(await http.MultipartFile.fromPath(entry.key, entry.value));
+        }
+      }
+
+      final streamedResponse = await _client.send(request).timeout(_timeout);
+      final response = await http.Response.fromStream(streamedResponse);
+      return _handleResponse<T>(response, fromJson);
+    } catch (e) {
+      return _handleError<T>(e);
+    }
+  }
+
   /// Performs an HTTP DELETE request.
   static Future<ApiResponse<T>> delete<T>(
     String endpoint, {
@@ -324,18 +351,33 @@ class BaseApiService {
 
   // --- Token Refresh and Retry ---
 
-  /// Attempts to refresh the access token using the stored refresh token.
-  /// Returns true if successful, false otherwise.
-  static Future<bool> refreshToken() async {
-    try {
-      // Use the dedicated storage service to get the refresh token
-      final refresh = await TokenStorageService.getRefreshToken();
-      if (refresh == null) {
-        // No refresh token available, cannot refresh
-        return false;
-      }
+  // Prevents concurrent token refresh calls from racing each other
+  static Completer<bool>? _refreshCompleter;
 
-      // Use the post method, but explicitly set auth to false for the refresh endpoint
+  /// Attempts to refresh the access token. If a refresh is already in progress,
+  /// waits for it rather than issuing a duplicate request.
+  static Future<bool> refreshToken() async {
+    if (_refreshCompleter != null) {
+      return _refreshCompleter!.future;
+    }
+    _refreshCompleter = Completer<bool>();
+    try {
+      final result = await _doRefreshToken();
+      _refreshCompleter!.complete(result);
+      return result;
+    } catch (e) {
+      _refreshCompleter!.complete(false);
+      return false;
+    } finally {
+      _refreshCompleter = null;
+    }
+  }
+
+  static Future<bool> _doRefreshToken() async {
+    try {
+      final refresh = await TokenStorageService.getRefreshToken();
+      if (refresh == null) return false;
+
       final response = await post<Map<String, dynamic>>(
         '/api/token/refresh/',
         body: {'refresh': refresh},
@@ -344,19 +386,12 @@ class BaseApiService {
 
       if (response.success && response.data != null) {
         final newAccess = response.data!['access'] as String?;
-
         final newRefresh = response.data!['refresh'] as String?;
-
         if (newAccess != null) {
-          // Save the new access token and potentially a new refresh token
-          await TokenStorageService.saveTokens(
-            newAccess,
-            newRefresh ?? refresh,
-          );
-          return true; // Token refreshed successfully
+          await TokenStorageService.saveTokens(newAccess, newRefresh ?? refresh);
+          return true;
         }
       }
-
       return false;
     } catch (e) {
       return false;
@@ -366,20 +401,15 @@ class BaseApiService {
   static Future<ApiResponse<T>> requestWithRetry<T>(
     Future<ApiResponse<T>> Function() request,
   ) async {
-    // First attempt
     var response = await request();
 
     if (!response.success && response.statusCode == 401) {
-      // Attempt to refresh the token
       final refreshed = await refreshToken();
-
       if (refreshed) {
-        // If token refreshed successfully, retry the original request
-        // This second response is the one we should return
         response = await request();
-        // Now 'response' holds the result of the successful retry (or whatever the second attempt yielded)
+      } else {
+        await TokenStorageService.clearTokens();
       }
-      // If refresh failed, 'response' still holds the original 401 error response
     }
 
     return response;

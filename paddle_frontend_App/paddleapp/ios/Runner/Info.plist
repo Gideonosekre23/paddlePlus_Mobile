@@ -45,15 +45,15 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
-	<string>NSLocationWhenInUseUsageDescription</string>
-	<key>This app would like to use your location</key>
-	<string>NSLocationAlwaysAndWhenInUseUsageDescription</string>
-	<key>This app would like to use your location</key>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>This app needs access to location when open.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>This app needs access to location when in the background.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>This app needs access to location when open and in the background.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs camera access to take a profile photo.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs photo library access to choose a profile photo.</string>
 </dict>
 </plist>

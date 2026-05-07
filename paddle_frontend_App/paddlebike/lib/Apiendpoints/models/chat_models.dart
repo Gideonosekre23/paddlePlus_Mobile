@@ -21,12 +21,22 @@ class ChatMessage {
   factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
     id: json['id'] as int,
     content: json['content'] as String,
-    sender: json['sender'] as int,
-    senderId: json['sender_id'] as int,
+    sender: json['sender'] as int? ?? json['sender_id'] as int? ?? 0,
+    senderId: json['sender_id'] as int? ?? 0,
     senderUsername: json['sender_username'] as String,
     timestamp: DateTime.parse(json['timestamp'] as String),
     isRead: json['is_read'] as bool? ?? false,
   );
+
+  ChatMessage copyWith({bool? isRead}) => ChatMessage(
+        id: id,
+        content: content,
+        sender: sender,
+        senderId: senderId,
+        senderUsername: senderUsername,
+        timestamp: timestamp,
+        isRead: isRead ?? this.isRead,
+      );
 
   bool isFromCurrentUser(int currentUserId) => senderId == currentUserId;
 }
@@ -62,7 +72,7 @@ class ChatNotification {
         message: json['message'] as String,
         tripId: json['trip_id']?.toString(),
         sender: json['sender'] as String,
-        senderId: json['sender_id'] as int,
+        senderId: json['sender_id'] as int? ?? 0,
         timestamp: DateTime.parse(json['timestamp'] as String),
         action: json['action'] as String,
         notificationCategory: json['notification_category'] as String,
@@ -90,7 +100,7 @@ class NewMessageNotification {
       NewMessageNotification(
         type: json['type'] as String,
         message: ChatMessage.fromJson(json['message'] as Map<String, dynamic>),
-        tripId: json['trip_id'] as String,
+        tripId: json['trip_id'] as String? ?? '',
         timestamp: DateTime.parse(json['timestamp'] as String),
       );
 }

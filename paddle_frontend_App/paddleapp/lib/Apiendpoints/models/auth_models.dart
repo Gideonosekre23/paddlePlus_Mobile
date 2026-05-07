@@ -213,46 +213,61 @@ class LoginResponse {
   final User user;
   final String accessToken;
   final String refreshToken;
-  final String chatWsUrl;
-  final String wsUrl;
+  final String? chatWsUrl;
+  final String? wsUrl;
 
   const LoginResponse({
     required this.user,
     required this.accessToken,
     required this.refreshToken,
-    required this.chatWsUrl,
-    required this.wsUrl,
+    this.chatWsUrl,
+    this.wsUrl,
   });
 
   factory LoginResponse.fromJson(Map<String, dynamic> json) {
-    // Ensure the 'user' key itself is present
     if (!json.containsKey('user')) {
       throw const FormatException(
         "Invalid JSON for LoginResponse: Missing 'user' key",
       );
     }
 
-    // Access the nested user data
     final userData = json['user'] as Map<String, dynamic>;
 
-    // Ensure all expected keys are present within the 'user' object
-    if (!userData.containsKey('access') ||
-        !userData.containsKey('refresh') ||
-        !userData.containsKey('chat_ws_url') ||
-        !userData.containsKey('ws_url')) {
+    if (!userData.containsKey('access') || !userData.containsKey('refresh')) {
       throw const FormatException(
-        "Invalid JSON for LoginResponse: Missing token or WebSocket URL keys within the 'user' object",
+        "Invalid JSON for LoginResponse: Missing 'access' or 'refresh' token",
       );
     }
+
     return LoginResponse(
-      // Parse nested User profile data (User.fromJson will handle its own keys)
       user: User.fromJson(userData),
       accessToken: userData['access'] as String,
       refreshToken: userData['refresh'] as String,
-      chatWsUrl: userData['chat_ws_url'] as String,
-      wsUrl: userData['ws_url'] as String,
+      chatWsUrl: userData['chat_ws_url'] as String?,
+      wsUrl: userData['ws_url'] as String?,
     );
   }
+}
+
+// --- Social Registration Needed ---
+
+class SocialRegistrationNeeded {
+  final String registrationToken;
+  final String email;
+  final String username;
+
+  const SocialRegistrationNeeded({
+    required this.registrationToken,
+    required this.email,
+    required this.username,
+  });
+
+  factory SocialRegistrationNeeded.fromJson(Map<String, dynamic> json) =>
+      SocialRegistrationNeeded(
+        registrationToken: json['registration_token'] as String,
+        email: json['email'] as String,
+        username: json['username'] as String,
+      );
 }
 
 // --- Logout Request ---
@@ -265,6 +280,22 @@ class LogoutRequest {
   Map<String, dynamic> toJson() => {
     'refresh': refreshToken, // Matches backend 'refresh'
   };
+}
+
+// --- Password Reset / Change ---
+
+class MessageResponse {
+  final String message;
+  const MessageResponse({required this.message});
+  factory MessageResponse.fromJson(Map<String, dynamic> json) =>
+      MessageResponse(message: json['message'] as String);
+}
+
+class ResetTokenResponse {
+  final String resetToken;
+  const ResetTokenResponse({required this.resetToken});
+  factory ResetTokenResponse.fromJson(Map<String, dynamic> json) =>
+      ResetTokenResponse(resetToken: json['reset_token'] as String);
 }
 
 // --- Token Refresh Response ---

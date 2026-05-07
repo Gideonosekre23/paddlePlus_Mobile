@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:permission_handler/permission_handler.dart' as ph;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -38,7 +38,7 @@ class _Register2PageState extends State<Register2Page> {
   String? _lastVerificationStatus;
   Timer? _connectionTimeoutTimer;
 
-  File? _profileImageFile;
+  Uint8List? _profileImageBytes;
   final ImagePicker _picker = ImagePicker();
   late Location _location;
   bool _agreedToTerms = false;
@@ -122,9 +122,8 @@ class _Register2PageState extends State<Register2Page> {
         imageQuality: 50,
       );
       if (pickedFile != null) {
-        setState(() {
-          _profileImageFile = File(pickedFile.path);
-        });
+        final bytes = await pickedFile.readAsBytes();
+        if (mounted) setState(() => _profileImageBytes = bytes);
       }
     } catch (e) {
       if (!mounted) return;
@@ -289,9 +288,8 @@ class _Register2PageState extends State<Register2Page> {
     }
 
     String? base64Image;
-    if (_profileImageFile != null) {
-      List<int> imageBytes = await _profileImageFile!.readAsBytes();
-      base64Image = base64Encode(imageBytes);
+    if (_profileImageBytes != null) {
+      base64Image = base64Encode(_profileImageBytes!);
     }
 
     try {
@@ -608,6 +606,11 @@ class _Register2PageState extends State<Register2Page> {
   void _handleStatusUpdate(String? status, String? message) {
     print("📊 Status update: $status - $message");
 
+    if (status == 'verified') {
+      _handleVerificationComplete(status, message);
+      return;
+    }
+
     // ✅ Update state: Track status
     if (mounted) {
       setState(() {
@@ -820,10 +823,10 @@ class _Register2PageState extends State<Register2Page> {
                   child: CircleAvatar(
                     radius: 50,
                     backgroundColor: Colors.grey[300],
-                    backgroundImage: _profileImageFile != null
-                        ? FileImage(_profileImageFile!)
+                    backgroundImage: _profileImageBytes != null
+                        ? MemoryImage(_profileImageBytes!)
                         : null,
-                    child: _profileImageFile == null
+                    child: _profileImageBytes == null
                         ? Icon(
                             Icons.camera_alt,
                             color: Colors.grey[700],
@@ -837,7 +840,7 @@ class _Register2PageState extends State<Register2Page> {
             SizedBox(height: 8),
             Center(
               child: Text(
-                _profileImageFile == null
+                _profileImageBytes == null
                     ? 'Tap to add profile picture'
                     : 'Tap to change picture',
                 style: TextStyle(color: Colors.grey[600], fontSize: 14),
