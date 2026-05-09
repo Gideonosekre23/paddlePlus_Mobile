@@ -94,6 +94,33 @@ def register_Rider(request):
         if User.objects.filter(email__iexact=email).exists():
             return Response({'error': 'Email already registered'}, status=400)
 
+        # ── DEMO MODE early return (new code — Stripe try/except below unchanged) ──
+        if settings.DEMO_MODE:
+            import uuid as _uuid
+            fake_sid = f"vs_demo_{_uuid.uuid4().hex[:16]}"
+            _demo_pw_key = str(uuid.uuid4())
+            cache.set(f"reg_pw_{_demo_pw_key}", password, timeout=300)
+            _demo_meta = {
+                'username': username, 'email': email, 'pw_key': _demo_pw_key,
+                'phone_number': request.data.get('phone_number', ''),
+                'cpn': request.data.get('cpn', ''),
+                'address': request.data.get('address', ''),
+                'latitude': str(request.data.get('latitude', '')),
+                'longitude': str(request.data.get('longitude', '')),
+            }
+            if apple_sub:
+                _demo_meta['apple_sub'] = apple_sub
+            cache.set(f"demo_reg_{fake_sid}", _demo_meta, 300)
+            scheme = 'wss' if request.is_secure() else 'ws'
+            host = request.get_host()
+            return Response({
+                'message': 'Demo mode — KYC skipped',
+                'verification_url': 'about:blank',
+                'session_id': fake_sid,
+                'websocket_url': f"{scheme}://{host}/ws/verification/{fake_sid}/",
+            })
+        # ── end demo block ──────────────────────────────────────────────────────
+
         try:
             # Store password in cache with a random key — never send it to Stripe
             pw_key = str(uuid.uuid4())
