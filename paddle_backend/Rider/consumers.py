@@ -13,6 +13,21 @@ from asgiref.sync import sync_to_async
 stripe.api_key = settings.STRIPE_SECRET_KEY
 logger = logging.getLogger(__name__)
 
+
+def _assign_demo_payment(user_id):
+    """
+    New function — does not modify any existing code.
+    In DEMO_MODE, stamps a placeholder payment method on the rider profile so
+    Flutter's hasPaymentMethod check passes without a real Stripe card being stored.
+    Called only from the demo early-return block in check_verification_status().
+    Safe no-op when DEMO_MODE is False.
+    """
+    if not getattr(settings, 'DEMO_MODE', False):
+        return
+    from Rider.models import UserProfile as _UP
+    _UP.objects.filter(user_id=user_id).update(default_payment_method='pm_demo')
+
+
 class VerificationRiderConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.session_id = self.scope['url_route']['kwargs'].get('session_id')
@@ -102,6 +117,30 @@ class VerificationRiderConsumer(AsyncWebsocketConsumer):
             }
 
     async def check_verification_status(self):
+        # ── DEMO MODE early return (new code — existing loop below is unchanged) ──
+        if getattr(settings, 'DEMO_MODE', False) and self.session_id.startswith('vs_demo_'):
+            from django.core.cache import cache as _cache
+            meta = _cache.get(f'demo_reg_{self.session_id}')
+            if meta:
+                try:
+                    user_data = await self.create_user_and_profile(meta)  # existing method, not modified
+                    _assign_demo_payment(user_data['id'])                  # new function above
+                    await self.send(text_data=json.dumps({
+                        'type': 'verification_complete',
+                        'status': 'verified',
+                        'message': 'Demo verification complete',
+                        'user': user_data,
+                    }))
+                except Exception as exc:
+                    await self.send(text_data=json.dumps({
+                        'type': 'verification_complete',
+                        'status': 'unverified',
+                        'message': str(exc),
+                    }))
+            await self.close()
+            return  # never reaches the existing Stripe polling while-loop below
+        # ── end demo block ──────────────────────────────────────────────────────
+
         previous_status = None
         retry_count = 0
         max_retries = 60

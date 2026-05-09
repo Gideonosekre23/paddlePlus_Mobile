@@ -102,6 +102,32 @@ class VerificationOwnerConsumer(AsyncWebsocketConsumer):
             raise
 
     async def check_verification_status(self):
+        # ── DEMO MODE early return (new code — existing loop below unchanged) ────
+        if getattr(settings, 'DEMO_MODE', False) and self.session_id.startswith('vs_demo_'):
+            from django.core.cache import cache as _cache
+            meta = _cache.get(f'demo_reg_{self.session_id}')
+            if meta:
+                try:
+                    user_data = await self.create_user_and_profile(meta)
+                    status_data = {
+                        'type': 'status_update',
+                        'status': 'verified',
+                        'message': 'Demo verification complete',
+                        'registration': 'success',
+                        'user': user_data,
+                    }
+                except Exception as exc:
+                    status_data = {
+                        'type': 'status_update',
+                        'status': 'failed',
+                        'registration': 'failed',
+                        'error': str(exc),
+                    }
+                await self.send(text_data=json.dumps(status_data))
+            await self.close()
+            return
+        # ── end demo block ───────────────────────────────────────────────────────
+
         previous_status = None
         retry_count = 0
         max_retries = 60
