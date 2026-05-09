@@ -16,16 +16,16 @@ class BaseApiService {
 
     if (kDebugMode) {
       if (kIsWeb) {
-        print("Using debug web fallback URL: http://localhost:8000");
-        return 'http://localhost:8000';
+        print("Using debug web fallback URL: https://paddle-backend-qsix.onrender.com");
+        return 'https://paddle-backend-qsix.onrender.com';
       } else if (Platform.isAndroid) {
         // 10.0.2.2 reaches the host machine from the Android emulator.
         // For a physical device on LAN, pass --dart-define=API_BASE_URL=http://<your-ip>:8000
-        assert(() { debugPrint("Using debug Android fallback URL: http://10.0.2.2:8000"); return true; }());
-        return 'http://10.0.2.2:8000';
+        assert(() { debugPrint("Using debug Android fallback URL: https://paddle-backend-qsix.onrender.com"); return true; }());
+        return 'https://paddle-backend-qsix.onrender.com';
       } else if (Platform.isIOS || Platform.isMacOS) {
-        print("Using debug iOS/macOS fallback URL: http://localhost:8000");
-        return 'http://localhost:8000';
+        print("Using debug iOS/macOS fallback URL: https://paddle-backend-qsix.onrender.com");
+        return 'https://paddle-backend-qsix.onrender.com';
       }
 
       print(
@@ -37,7 +37,7 @@ class BaseApiService {
     // Falls back to the Render deployment URL if the define is omitted.
     const String productionUrl = String.fromEnvironment(
       'API_BASE_URL',
-      defaultValue: 'https://paddle-backend.onrender.com',
+      defaultValue: 'https://paddle-backend-qsix.onrender.com',
     );
 
     if (!kDebugMode) {
