@@ -12,19 +12,24 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
 _EXTRA_HOSTS = os.getenv('ALLOWED_HOSTS', '')
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '.onrender.com']
 if _EXTRA_HOSTS:
     ALLOWED_HOSTS += [h.strip() for h in _EXTRA_HOSTS.split(',') if h.strip()]
 elif DEBUG:
     # Dev only — never set DEBUG=True in production
-    ALLOWED_HOSTS += ['192.168.1.7', '.ngrok-free.app', '.onrender.com']
+    ALLOWED_HOSTS += ['192.168.1.7', '.ngrok-free.app']
 
 _CSRF_EXTRA = os.getenv('CSRF_TRUSTED_ORIGINS', '')
-CSRF_TRUSTED_ORIGINS = ['https://*.ngrok-free.app']
+CSRF_TRUSTED_ORIGINS = ['https://*.ngrok-free.app', 'https://*.onrender.com']
 if _CSRF_EXTRA:
     CSRF_TRUSTED_ORIGINS += [o.strip() for o in _CSRF_EXTRA.split(',') if o.strip()]
 elif DEBUG:
     CSRF_TRUSTED_ORIGINS += ['http://localhost:3000']
+
+# Trust Render's (and other reverse-proxy's) X-Forwarded-Proto header so that
+# request.is_secure() returns True and WebSocket URLs are built with wss://.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
 
 CORS_ALLOW_CREDENTIALS = True
 
