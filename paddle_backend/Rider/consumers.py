@@ -124,7 +124,7 @@ class VerificationRiderConsumer(AsyncWebsocketConsumer):
             if meta:
                 try:
                     user_data = await self.create_user_and_profile(meta)  # existing method, not modified
-                    _assign_demo_payment(user_data['id'])                  # new function above
+                    await sync_to_async(_assign_demo_payment)(user_data['id'])
                     await self.send(text_data=json.dumps({
                         'type': 'verification_complete',
                         'status': 'verified',
