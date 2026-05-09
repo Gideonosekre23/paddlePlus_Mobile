@@ -4,9 +4,8 @@ from django.db import migrations
 def add_rating_count_if_missing(apps, schema_editor):
     db = schema_editor.connection
     with db.cursor() as cursor:
-        cursor.execute("PRAGMA table_info(Bikes_bikes)")
-        columns = [row[1] for row in cursor.fetchall()]
-        if 'rating_count' not in columns:
+        existing = [col.name for col in db.introspection.get_table_description(cursor, 'Bikes_bikes')]
+        if 'rating_count' not in existing:
             cursor.execute(
                 "ALTER TABLE Bikes_bikes ADD COLUMN rating_count INTEGER NOT NULL DEFAULT 0"
             )
