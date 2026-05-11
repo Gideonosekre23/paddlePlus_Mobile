@@ -9,7 +9,9 @@ import '../Apiendpoints/models/auth_models.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
-final GoogleSignIn _googleSignIn = GoogleSignIn();
+final GoogleSignIn _googleSignIn = GoogleSignIn(
+  serverClientId: '458717799901-6oeb0nld2lqvm6j04hfgusfj769vqiu3.apps.googleusercontent.com',
+);
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
