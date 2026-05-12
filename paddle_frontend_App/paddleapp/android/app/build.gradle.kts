@@ -14,6 +14,12 @@ if (localPropertiesFile.exists()) {
 }
 val googleMapsApiKey: String = localProperties.getProperty("GOOGLE_MAPS_API_KEY", "")
 
+val keyProperties = Properties()
+val keyPropertiesFile = rootProject.file("key.properties")
+if (keyPropertiesFile.exists()) {
+    keyPropertiesFile.inputStream().use { keyProperties.load(it) }
+}
+
 android {
     namespace = "com.example.paddleapp"
     compileSdk = flutter.compileSdkVersion
@@ -28,6 +34,15 @@ android {
         jvmTarget = JavaVersion.VERSION_11.toString()
     }
 
+    signingConfigs {
+        create("release") {
+            keyAlias = keyProperties["keyAlias"] as String
+            keyPassword = keyProperties["keyPassword"] as String
+            storeFile = keyProperties["storeFile"]?.let { file(it) }
+            storePassword = keyProperties["storePassword"] as String
+        }
+    }
+
     defaultConfig {
         applicationId = "com.example.paddleapp"
         minSdk = flutter.minSdkVersion
@@ -39,12 +54,14 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 
     dependencies {
-        implementation("com.google.android.gms:play-services-auth:20.7.0")  
+        implementation("com.google.android.gms:play-services-auth:20.7.0")
     }
 }
 
