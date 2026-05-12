@@ -430,6 +430,15 @@ def stripe_webhook(request):
 def setup_payment_method(request):
     profile = request.user.userprofile
 
+    if getattr(settings, 'SKIP_PAYMENTS', False):
+        profile.default_payment_method = 'pm_demo'
+        profile.save(update_fields=['default_payment_method'])
+        return Response({
+            'setup_intent_client_secret': 'demo_secret',
+            'ephemeral_key': 'demo_ephemeral_key',
+            'customer_id': 'cus_demo',
+        })
+
     if not profile.stripe_customer_id:
         customer = stripe.Customer.create(
             email=request.user.email,
@@ -461,6 +470,13 @@ def setup_payment_method(request):
 @authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated])
 def confirm_payment_method(request):
+    profile = request.user.userprofile
+
+    if getattr(settings, 'SKIP_PAYMENTS', False):
+        profile.default_payment_method = 'pm_demo'
+        profile.save(update_fields=['default_payment_method'])
+        return Response({'success': True, 'message': 'Payment method saved'})
+
     payment_method_id = request.data.get('payment_method_id')
     setup_intent_secret = request.data.get('setup_intent_client_secret')
 
@@ -472,7 +488,6 @@ def confirm_payment_method(request):
     if not payment_method_id:
         return Response({'error': 'payment_method_id required'}, status=status.HTTP_400_BAD_REQUEST)
 
-    profile = request.user.userprofile
     if not profile.stripe_customer_id:
         return Response({'error': 'No Stripe customer found'}, status=status.HTTP_400_BAD_REQUEST)
 

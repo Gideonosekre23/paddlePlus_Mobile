@@ -499,8 +499,28 @@ def request_withdrawal(request):
     if amount_cents < min_withdrawal:
         return Response({'error': 'Minimum withdrawal is $1'}, status=400)
 
+    if getattr(settings, 'SKIP_PAYMENTS', False):
+        from django.db import transaction
+        with transaction.atomic():
+            PayoutRecord.objects.create(
+                owner=owner,
+                amount=owner.pending_balance,
+                stripe_transfer_id='tr_demo',
+                stripe_payout_id='po_demo',
+                method='instant',
+                status='paid',
+            )
+            OwnerProfile.objects.filter(pk=owner.pk).update(pending_balance=0)
+        owner.refresh_from_db()
+        return Response({
+            'message': 'Withdrawal successful. Arrives in minutes.',
+            'amount': float(owner.pending_balance),
+            'method': 'instant',
+            'stripe_transfer_id': 'tr_demo',
+            'stripe_payout_id': 'po_demo',
+        })
+
     if not owner.stripe_account_id:
-        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
         return Response({
             'error': 'Connect your bank account first',
             'setup_required': True,

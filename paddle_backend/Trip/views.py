@@ -37,7 +37,11 @@ def start_trip(request, trip_id):
 
     rider_profile = trip.renter
     payment_held = False
-    if rider_profile.default_payment_method and rider_profile.stripe_customer_id:
+    if getattr(settings, 'SKIP_PAYMENTS', False):
+        trip.payment_intent_id = 'pi_demo'
+        trip.payment_status = 'processing'
+        payment_held = True
+    elif rider_profile.default_payment_method and rider_profile.stripe_customer_id:
         try:
             pi = stripe.PaymentIntent.create(
                 amount=int(float(trip.price) * 100),
@@ -113,7 +117,12 @@ def end_trip(request, trip_id):
         estimated_cents = original_estimated_cents
 
         from django.db.models import F
-        if trip.payment_intent_id:
+        if getattr(settings, 'SKIP_PAYMENTS', False):
+            # Skip all Stripe calls — just credit the owner in the DB
+            OwnerProfile.objects.filter(pk=trip.bike_owner_id).update(
+                pending_balance=F('pending_balance') + trip.owner_payout
+            )
+        elif trip.payment_intent_id and trip.payment_intent_id != 'pi_demo':
             # Capture the pre-auth — platform keeps the full amount; owner share tracked in DB
             capture_cents = min(actual_cents, estimated_cents)
             stripe.PaymentIntent.capture(

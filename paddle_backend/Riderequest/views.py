@@ -142,27 +142,31 @@ def request_ride_with_payment(request):
         status='pending',
     )
 
-    payment_intent = None
-    try:
-        payment_intent = stripe.PaymentIntent.create(
-            amount=int(float(estimated_price) * 100),
-            currency='usd',
-            metadata={
-                'ride_request_id': ride_request.id,
-                'temp_request_id': str(ride_request.temp_request_id),
-            },
-            idempotency_key=f"ride_req_{ride_request.temp_request_id}",
-        )
-        ride_request.payment_intent_id = payment_intent.id
+    if getattr(settings, 'SKIP_PAYMENTS', False):
+        ride_request.payment_intent_id = 'pi_demo'
         ride_request.save(update_fields=['payment_intent_id'])
-    except Exception as e:
-        ride_request.delete()
-        if payment_intent is not None:
-            try:
-                stripe.PaymentIntent.cancel(payment_intent.id)
-            except Exception:
-                pass
-        return Response({'error': f'Payment setup failed: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        payment_intent = None
+        try:
+            payment_intent = stripe.PaymentIntent.create(
+                amount=int(float(estimated_price) * 100),
+                currency='usd',
+                metadata={
+                    'ride_request_id': ride_request.id,
+                    'temp_request_id': str(ride_request.temp_request_id),
+                },
+                idempotency_key=f"ride_req_{ride_request.temp_request_id}",
+            )
+            ride_request.payment_intent_id = payment_intent.id
+            ride_request.save(update_fields=['payment_intent_id'])
+        except Exception as e:
+            ride_request.delete()
+            if payment_intent is not None:
+                try:
+                    stripe.PaymentIntent.cancel(payment_intent.id)
+                except Exception:
+                    pass
+            return Response({'error': f'Payment setup failed: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
     notify_user(
         nearest_bike.owner.user.id,

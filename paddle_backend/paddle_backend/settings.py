@@ -169,6 +169,7 @@ DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@paddleplus.app')
 PLATFORM_COMMISSION_RATE = os.getenv('PLATFORM_COMMISSION_RATE', '0.15')
 
 DEMO_MODE = os.getenv('DEMO_MODE', 'False').lower() == 'true'
+SKIP_PAYMENTS = os.getenv('SKIP_PAYMENTS', 'False').lower() == 'true'
 
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'

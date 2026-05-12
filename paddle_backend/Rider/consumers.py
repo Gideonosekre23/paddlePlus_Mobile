@@ -15,15 +15,6 @@ logger = logging.getLogger(__name__)
 
 
 def _assign_demo_payment(user_id):
-    """
-    New function — does not modify any existing code.
-    In DEMO_MODE, stamps a placeholder payment method on the rider profile so
-    Flutter's hasPaymentMethod check passes without a real Stripe card being stored.
-    Called only from the demo early-return block in check_verification_status().
-    Safe no-op when DEMO_MODE is False.
-    """
-    if not getattr(settings, 'DEMO_MODE', False):
-        return
     from Rider.models import UserProfile as _UP
     _UP.objects.filter(user_id=user_id).update(default_payment_method='pm_demo')
 
@@ -159,6 +150,8 @@ class VerificationRiderConsumer(AsyncWebsocketConsumer):
 
                     if current_status == 'verified':
                         user_data = await self.create_user_and_profile(session.metadata)
+                        if getattr(settings, 'SKIP_PAYMENTS', False):
+                            await sync_to_async(_assign_demo_payment)(user_data['id'])
                         await self.send(text_data=json.dumps({
                             'type': 'verification_complete',
                             'status': 'verified',
