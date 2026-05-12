@@ -11,7 +11,9 @@ import 'package:paddlebike/Apiendpoints/models/api_response.dart';
 import 'package:paddlebike/pages/forgot_password_page.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
-final GoogleSignIn _googleSignIn = GoogleSignIn();
+final GoogleSignIn _googleSignIn = GoogleSignIn(
+  serverClientId: '458717799901-6oeb0nld2lqvm6j04hfgusfj769vqiu3.apps.googleusercontent.com',
+);
 
 class login_page extends StatefulWidget {
   const login_page({super.key});
