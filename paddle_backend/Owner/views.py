@@ -201,6 +201,35 @@ def register_Owner(request):
         except Exception as e:
             return Response({'error': str(e)}, status=400)
 
+    # ── Social registration (Google / Apple) ────────────────────────────────
+    provider = request.data.get('provider')
+    provider_token = request.data.get('provider_token')
+
+    if provider and provider_token:
+        try:
+            email = verify_social_token_for_login(provider, provider_token)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+
+        if User.objects.filter(email__iexact=email).exists():
+            existing = User.objects.get(email__iexact=email)
+            if hasattr(existing, 'owner_profile'):
+                return Response(
+                    {'error': 'An owner account already exists for this account. Please sign in instead.'},
+                    status=400,
+                )
+            return Response({'error': 'An account with this email already exists.'}, status=400)
+
+        base = email.split('@')[0][:20]
+        username = base
+        suffix = 1
+        while User.objects.filter(username=username).exists():
+            username = f"{base}{suffix}"
+            suffix += 1
+
+        phase1_token = _sign_phase1_owner({'username': username, 'email': email, 'password': ''})
+        return Response({'message': 'Proceed to step 2', 'token': phase1_token})
+
     # ── Phase 1: validate and issue a short-lived token ─────────────────────
     username = request.data.get('username', '').strip()
     email    = request.data.get('email', '').strip().lower()
